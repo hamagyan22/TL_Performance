@@ -538,54 +538,58 @@ function AgentDashboard({
         ) : (
           <div className="space-y-5">
 
-            {/* Year Performance Overview (Modern & Eye-Friendly) */}
-            <div className="bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-7 shadow-sm border border-gray-200/70 dark:border-gray-700/80">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100 dark:border-gray-700/60">
+            {/* Year Performance Overview (FIB Emerald Theme - Modern & Ultra-Sleek) */}
+            <div className="bg-gradient-to-br from-[#0C3227] via-[#124235] to-[#0A281F] rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#0C3227]/20 border border-emerald-500/25 relative overflow-hidden text-white">
+              {/* Subtle ambient brand glow in background */}
+              <div className="absolute -top-24 -right-24 w-72 h-72 bg-[#1C6B53]/25 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-[#00A887]/15 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 relative z-10">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 text-[11px] font-bold tracking-wide uppercase mb-1">
-                    <Sparkles size={12} className="text-emerald-600 dark:text-emerald-400" />
-                    <span>Annual Performance Summary</span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-400/15 border border-emerald-400/25 text-emerald-300 text-[11px] font-bold tracking-widest uppercase mb-2">
+                    <Sparkles size={12} className="text-emerald-300" />
+                    <span>Year Performance</span>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">
-                    {selectedYear} Comprehensive Overview
+                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                    {selectedYear} Overview
                   </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium">
-                    Consolidated year-to-date metrics calculated across all 12 months
+                  <p className="text-xs text-emerald-100/70 mt-1 font-medium">
+                    Consolidated annual metrics calculated across all 12 months
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-2 self-start sm:self-auto px-3.5 py-2 rounded-2xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200/60 dark:border-gray-700/60 shadow-2xs">
-                  <img src="/logo.webp" alt="FIB Logo" className="h-4.5 w-auto object-contain opacity-80" />
-                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">FIB Scorecard</span>
+                <div className="flex items-center gap-2.5 self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-inner">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold text-emerald-100 tracking-wide">12 Months Consolidated</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 mt-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 mt-6 relative z-10">
                 {teamCols.map((col: any) => {
                   const yearAvg = avgCols(months, col);
                   return (
                     <div 
                       key={col.id} 
-                      className="relative overflow-hidden bg-gradient-to-b from-gray-50/90 to-[#f4f7f5]/80 dark:from-gray-900/50 dark:to-gray-900/80 border border-gray-200/70 dark:border-gray-700/70 hover:border-emerald-400/60 dark:hover:border-emerald-500/50 rounded-2xl p-4 sm:p-5 transition-all duration-200 group hover:shadow-sm"
+                      className="relative overflow-hidden bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/15 hover:border-emerald-400/40 rounded-2xl p-4 sm:p-5 transition-all duration-200 group shadow-sm hover:shadow-md"
                     >
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300 group-hover:text-[#1C6B53] dark:group-hover:text-emerald-300 transition-colors truncate">
+                        <span className="text-xs font-bold text-emerald-100/80 group-hover:text-white transition-colors truncate">
                           {toTitleCase(col.label)}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700/60 text-emerald-700 dark:text-emerald-400 uppercase tracking-wider shrink-0 shadow-2xs">
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 uppercase tracking-wider shrink-0">
                           {col.aggregation === 'sum' ? 'Sum' : 'Avg'}
                         </span>
                       </div>
                       
-                      <div className="flex items-baseline justify-between mt-1">
-                        <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-none">
+                      <div className="flex items-baseline justify-between mt-2">
+                        <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none group-hover:scale-[1.02] transition-transform">
                           {yearAvg}
                         </span>
                       </div>
 
-                      <div className="mt-3 pt-2.5 border-t border-gray-200/50 dark:border-gray-800/60 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                      <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] text-emerald-200/60 font-medium">
                         <span>Year Cumulative</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{selectedYear}</span>
+                        <span className="text-emerald-300 font-bold">{selectedYear}</span>
                       </div>
                     </div>
                   );
@@ -814,8 +818,8 @@ function AgentDashboard({
 export default function Dashboard() {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const isAdmin = session?.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com';
-  const isManager = isAdmin || session?.email?.toLowerCase() === 'jalal.burghol@agent.com' || (userProfile?.role === 'manager' && session?.email?.toLowerCase() === 'jalal.burghol@agent.com');
+  const isAdmin = session?.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com' || userProfile?.role === 'admin';
+  const isManager = isAdmin || session?.email?.toLowerCase() === 'jalal.burghol@agent.com' || userProfile?.role === 'manager';
   const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1103,7 +1107,7 @@ export default function Dashboard() {
         // Instant optimistic role identification
         if (isMohammed) {
           const adminProfile: any = {
-            role: 'manager',
+            role: 'admin',
             isAdmin: true,
             team: 'Mohammed Dlshad Team',
             name: 'Mohammed Dlshad',
@@ -1831,10 +1835,10 @@ export default function Dashboard() {
               <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
               <div>
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                  Team Leader Dashboard
+                  {isAdmin ? 'Administrator Dashboard' : isManager ? 'Manager Dashboard' : 'Team Leader Dashboard'}
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                  Performance & Quality Analytics
+                  {isAdmin ? 'System Administration & Performance Analytics' : isManager ? 'Executive Oversight & Analytics' : 'Performance & Quality Analytics'}
                 </p>
               </div>
             </div>
@@ -1898,9 +1902,20 @@ export default function Dashboard() {
                     userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={13} />
                   )}
                 </div>
-                <span className="max-w-[130px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
-                  {userProfile?.name || (isAdmin ? 'Mohammed Dlshad' : (isManager ? 'Jalal Burghol' : 'Team Lead'))}
-                </span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="max-w-[120px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
+                    {userProfile?.name || (isAdmin ? 'Mohammed Dlshad' : (isManager ? 'Jalal Burghol' : 'Team Lead'))}
+                  </span>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${
+                    isAdmin 
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/60' 
+                      : isManager 
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700/60'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-400 border-emerald-300 dark:border-emerald-700/60'
+                  }`}>
+                    {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Team Lead'}
+                  </span>
+                </div>
               </button>
 
               <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
@@ -2249,7 +2264,7 @@ export default function Dashboard() {
                             onChange={(e) => setEditMemberName(e.target.value)} 
                             className="flex-1 px-2 py-1 text-sm border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           />
-                          {userProfile?.role === 'manager' && (
+                          {(isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'admin') && (
                             <select 
                               value={editMemberTeam} 
                               onChange={(e: any) => setEditMemberTeam(e.target.value)} 
@@ -2476,7 +2491,7 @@ export default function Dashboard() {
               <div className="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 text-xs text-gray-500 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-gray-600 dark:text-gray-300">Account Role</span>
-                  <span className="font-bold text-gray-800 dark:text-white">{userProfile?.role === 'manager' ? 'Administrator / Manager' : 'Team Leader'}</span>
+                  <span className="font-bold text-gray-800 dark:text-white">{isAdmin ? 'Administrator' : userProfile?.role === 'manager' ? 'Manager' : userProfile?.role === 'agent' ? 'Agent' : 'Team Leader'}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
                   <span className="font-semibold text-gray-600 dark:text-gray-300">Email Address</span>
