@@ -413,6 +413,85 @@ export default function Dashboard() {
 
   const [columnsMap, setColumnsMap] = useState<Record<string, ColumnConfig[]>>({});
 
+  // TL & Manager Profile Modal State
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState("");
+  const [newProfilePassword, setNewProfilePassword] = useState("");
+  const [confirmProfilePassword, setConfirmProfilePassword] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const openProfileModal = () => {
+    setProfileName(userProfile?.name || "");
+    setProfilePhoto(userProfile?.photo_url || "");
+    setNewProfilePassword("");
+    setConfirmProfilePassword("");
+    setProfileError("");
+    setProfileSuccess("");
+    setShowProfileModal(true);
+  };
+
+  const handleProfilePhotoUpload = (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setProfilePhoto(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveTLProfile = async (e: any) => {
+    e.preventDefault();
+    setProfileError("");
+    setProfileSuccess("");
+    setSavingProfile(true);
+
+    try {
+      if (newProfilePassword) {
+        if (newProfilePassword !== confirmProfilePassword) {
+          setProfileError("Passwords do not match");
+          setSavingProfile(false);
+          return;
+        }
+        if (newProfilePassword.length < 6) {
+          setProfileError("Password must be at least 6 characters");
+          setSavingProfile(false);
+          return;
+        }
+        if (auth.currentUser) {
+          await updatePassword(auth.currentUser, newProfilePassword);
+        }
+      }
+
+      if (session?.uid) {
+        await updateDoc(doc(db, 'users', session.uid), {
+          name: profileName,
+          photo_url: profilePhoto,
+          ...(newProfilePassword ? { mustChangePassword: false } : {})
+        });
+        setUserProfile((prev: any) => ({
+          ...prev,
+          name: profileName,
+          photo_url: profilePhoto,
+          ...(newProfilePassword ? { mustChangePassword: false } : {})
+        }));
+      }
+
+      setProfileSuccess("Profile updated successfully!");
+      setTimeout(() => {
+        setShowProfileModal(false);
+        setProfileSuccess("");
+      }, 900);
+    } catch (err: any) {
+      setProfileError(err.message || "Failed to update profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   // Manage members modal
   const [showManageMembers, setShowManageMembers] = useState(false);
   const [allMembers, setAllMembers] = useState<any[]>([]);
@@ -662,16 +741,18 @@ export default function Dashboard() {
   };
 
   const openManageModal = () => {
-    setManageColsTeam(selectedTeam);
-    setNewMemberTeam(selectedTeam);
+    const targetTeam = (userProfile?.role === 'tl' && userProfile?.team) ? userProfile.team : selectedTeam;
+    setManageColsTeam(targetTeam);
+    setNewMemberTeam(targetTeam);
     fetchAllMembers();
     setShowManageMembers(true);
   };
 
   const handleAddMember = async () => {
     if (!newMemberName.trim()) return;
+    const targetTeam = (userProfile?.role === 'tl' && userProfile?.team) ? userProfile.team : newMemberTeam;
     try {
-      await addDoc(collection(db, 'team_members'), { agent_name: newMemberName.trim(), team: newMemberTeam });
+      await addDoc(collection(db, 'team_members'), { agent_name: newMemberName.trim(), team: targetTeam });
       setNewMemberName("");
       fetchAllMembers();
       fetchData();
@@ -687,10 +768,11 @@ export default function Dashboard() {
   };
 
   const handleSaveMember = async (id: string) => {
+    const targetTeam = (userProfile?.role === 'tl' && userProfile?.team) ? userProfile.team : editMemberTeam;
     try {
       await updateDoc(doc(db, 'team_members', id), {
         agent_name: editMemberName.trim(),
-        team: editMemberTeam
+        team: targetTeam
       });
       setEditingMemberId(null);
       fetchAllMembers();
@@ -862,58 +944,158 @@ export default function Dashboard() {
     ? TEAMS.filter(t => t === userProfile.team) 
     : TEAMS;
 
+  const displayedMembers = userProfile?.role === 'tl' && userProfile?.team
+    ? allMembers.filter(m => m.team === userProfile.team)
+    : allMembers;
 
-const activeCols = columnsMap[selectedTeam] || [];
+  const activeCols = columnsMap[selectedTeam] || [];
   const manageCols = columnsMap[manageColsTeam] || [];
 
   return (
     <div className="min-h-screen p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
       <div className="max-w-[1400px] mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start w-full mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/60 dark:border-gray-800">
           <div>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white">Team Lead Dashboard</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+                {userProfile?.role === 'manager' ? 'Manager Dashboard' : 'Team Lead Dashboard'}
+              </h1>
+              <span className="px-3 py-1 text-xs font-extrabold rounded-full bg-[#1C6B53]/10 text-[#1C6B53] dark:bg-emerald-500/20 dark:text-emerald-400 border border-[#1C6B53]/20">
+                {userProfile?.role === 'manager' ? 'Executive Manager' : (userProfile?.team?.replace(' Team', '') || 'Team Lead')}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
+              Performance metrics, agent monitoring & analytics overview
+            </p>
           </div>
           
-          <div className="flex gap-2 items-center">
-            <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition" title="Toggle dark mode">
-               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <div className="flex gap-2.5 items-center flex-wrap">
+            {/* Dark Mode Toggle */}
+            <button 
+              onClick={toggleDarkMode} 
+              className="p-2.5 rounded-xl hover:bg-gray-200/70 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" 
+              title="Toggle dark mode"
+            >
+              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 rounded-md transition border border-gray-200 dark:border-gray-700 shadow-sm ml-2">
-              <LogOut size={16} /> Logout
+
+            {/* Profile Button */}
+            <button 
+              onClick={openProfileModal}
+              className="flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800 group"
+              title="Edit Profile"
+            >
+              <div className="w-7 h-7 rounded-full bg-[#1C6B53]/15 dark:bg-emerald-950 flex items-center justify-center overflow-hidden border border-[#1C6B53]/30 text-[#1C6B53] dark:text-emerald-400 font-black text-xs">
+                {userProfile?.photo_url ? (
+                  <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={14} />
+                )}
+              </div>
+              <span className="max-w-[130px] truncate">{userProfile?.name || (userProfile?.role === 'manager' ? 'Jalal Burghol' : 'Team Lead')}</span>
+              <Edit2 size={13} className="text-gray-400 group-hover:text-[#1C6B53] transition" />
+            </button>
+
+            {/* Logout Button */}
+            <button 
+              onClick={handleLogout} 
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition border border-red-200 dark:border-red-900/50 shadow-sm bg-white dark:bg-gray-800"
+            >
+              <LogOut size={15} /> Logout
             </button>
           </div>
         </div>
 
         {/* Team Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {activeTeams.map((teamName) => {
-            const isActive = selectedTeam === teamName;
-            const teamCols = columnsMap[teamName] || [];
-            return (
-              <button
-                key={teamName}
-                onClick={() => setSelectedTeam(teamName)}
-                className={`text-left p-6 rounded-md shadow-sm flex flex-col justify-between h-44 transition border cursor-pointer
-                  ${isActive 
-                    ? 'bg-[#1C6B53] dark:bg-emerald-800 text-white border-transparent'
-                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'}`}
-              >
-                <h2 className={`text-xs font-semibold tracking-widest uppercase mb-4 ${isActive ? 'text-emerald-100 dark:text-emerald-200' : 'text-gray-400 dark:text-gray-500'}`}>
-                  {teamName}
-                </h2>
-                <div>
-                  <div className={`flex justify-between text-[9px] tracking-widest uppercase mb-2 font-medium ${isActive ? 'text-emerald-200/80 dark:text-emerald-300/80' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {teamCols.map(col => <span key={col.id}>{col.label}</span>)}
-                  </div>
-                  <div className="flex justify-between font-semibold text-sm mb-4">
-                    {teamCols.map(col => <span key={col.id}>{isActive ? calcAvg(col, rows) : '-'}</span>)}
-                  </div>
+        {activeTeams.length === 1 ? (
+          <div className="mb-8 bg-gradient-to-br from-[#1C6B53] via-[#165a46] to-[#104334] text-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#1C6B53]/15 border border-emerald-600/30 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
+                  <Users size={24} className="text-emerald-200" />
                 </div>
-              </button>
-            );
-          })}
-        </div>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
+                      {activeTeams[0]}
+                    </h2>
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
+                      Team Overview
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100/70 mt-0.5 font-medium">
+                    {selectedMonth} {selectedYear} Performance Summary • {rows.length} Active Agents
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+              {(columnsMap[activeTeams[0]] || []).map((col) => {
+                const avgVal = calcAvg(col, rows);
+                return (
+                  <div key={col.id} className="bg-white/10 dark:bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 flex flex-col justify-between hover:bg-white/15 transition shadow-sm">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-100/90 truncate mb-2" title={col.label}>
+                      {col.label}
+                    </div>
+                    <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                      {avgVal}
+                    </div>
+                    <div className="text-[9px] text-emerald-300/70 font-semibold uppercase mt-1">
+                      {col.aggregation}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {activeTeams.map((teamName) => {
+              const isActive = selectedTeam === teamName;
+              const teamCols = columnsMap[teamName] || [];
+              return (
+                <button
+                  key={teamName}
+                  onClick={() => setSelectedTeam(teamName)}
+                  className={`text-left p-6 rounded-3xl shadow-sm flex flex-col justify-between transition-all border cursor-pointer relative overflow-hidden
+                    ${isActive 
+                      ? 'bg-gradient-to-br from-[#1C6B53] to-[#155a45] text-white border-transparent shadow-lg shadow-[#1C6B53]/20 ring-2 ring-[#1C6B53]/50 scale-[1.01]' 
+                      : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-200/80 dark:border-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'}`}
+                >
+                  <div className="flex justify-between items-start w-full mb-4">
+                    <div>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${isActive ? 'text-emerald-200' : 'text-gray-400'}`}>
+                        Team Performance
+                      </span>
+                      <h2 className="text-base sm:text-lg font-bold tracking-tight">
+                        {teamName}
+                      </h2>
+                    </div>
+                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                      {isActive ? 'Selected' : 'Select'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 w-full mt-2">
+                    {teamCols.slice(0, 8).map(col => (
+                      <div key={col.id} className={`p-2 rounded-xl text-center border ${isActive ? 'bg-white/10 border-white/10' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700'}`}>
+                        <div className={`text-[9px] uppercase font-bold truncate ${isActive ? 'text-emerald-100/80' : 'text-gray-400'}`} title={col.label}>
+                          {col.label}
+                        </div>
+                        <div className="font-extrabold text-xs sm:text-sm mt-0.5">
+                          {isActive ? calcAvg(col, rows) : '-'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Month Tabs & Controls */}
         <div className="flex flex-col mb-4 gap-4">
@@ -937,8 +1119,8 @@ const activeCols = columnsMap[selectedTeam] || [];
               onClick={openManageModal}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-sm text-xs font-bold tracking-wider uppercase shadow-sm"
             >
-              <Settings size={13} />
-              System Config
+              {userProfile?.role === 'manager' ? <Settings size={13} /> : <Users size={13} />}
+              {userProfile?.role === 'manager' ? 'System Config' : 'Manage Agents'}
             </button>
           </div>
 
@@ -1054,25 +1236,38 @@ const activeCols = columnsMap[selectedTeam] || [];
       {showManageMembers && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowManageMembers(false)} />
-          <div className="relative bg-[#F9F8F4] dark:bg-gray-900 rounded-xl shadow-2xl p-8 max-w-5xl w-full border border-transparent dark:border-gray-700 mb-10">
+          <div className={`relative bg-[#F9F8F4] dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all ${userProfile?.role === 'manager' ? 'max-w-5xl' : 'max-w-2xl'}`}>
             
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">System Configuration</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add or remove agents and table columns across the system.</p>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                  {userProfile?.role === 'manager' ? 'System Configuration' : 'Manage Team Agents'}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {userProfile?.role === 'manager' 
+                    ? 'Add or remove agents and table columns across the system.' 
+                    : `Manage agent roster for ${userProfile?.team || 'your team'}.`}
+                </p>
               </div>
-              <button onClick={() => setShowManageMembers(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+              <button onClick={() => setShowManageMembers(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
                  <X size={24} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid gap-6 ${userProfile?.role === 'manager' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
               
               {/* Agents Card */}
-              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-2 mb-6">
-                  <Users size={18} className="text-gray-600 dark:text-gray-300" />
-                  <h3 className="font-bold text-gray-800 dark:text-gray-100">Agents</h3>
+              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Users size={18} className="text-gray-600 dark:text-gray-300" />
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                      {userProfile?.role === 'tl' ? `${userProfile?.team?.replace(' Team', '') || 'My Team'} Agents` : 'Agents'}
+                    </h3>
+                  </div>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    {displayedMembers.length} Agents
+                  </span>
                 </div>
                 
                 <input
@@ -1081,36 +1276,43 @@ const activeCols = columnsMap[selectedTeam] || [];
                   value={newMemberName}
                   onChange={(e) => setNewMemberName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddMember()}
-                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-sm text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53]"
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53] font-medium"
                 />
                 
-                <div className="relative mb-3">
-                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                     <Briefcase size={14} className="text-white" />
-                   </div>
-                   <select
-                     value={newMemberTeam}
-                     onChange={(e) => setNewMemberTeam(e.target.value as TeamName)}
-                     className="w-full pl-9 pr-8 py-2.5 bg-[#1C6B53] text-white text-sm font-medium rounded-sm appearance-none cursor-pointer outline-none"
-                   >
-                     {activeTeams.map(t => <option key={t} value={t} className="bg-white text-gray-800">{t}</option>)}
-                   </select>
-                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                     <ChevronDown size={14} className="text-white" />
-                   </div>
-                </div>
+                {userProfile?.role === 'tl' ? (
+                  <div className="flex items-center gap-2 mb-3 px-3.5 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[#1C6B53] dark:text-emerald-400 rounded-xl text-xs font-bold">
+                    <Briefcase size={14} />
+                    <span>Assigned Team: {userProfile.team}</span>
+                  </div>
+                ) : (
+                  <div className="relative mb-3">
+                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <Briefcase size={14} className="text-white" />
+                     </div>
+                     <select
+                       value={newMemberTeam}
+                       onChange={(e) => setNewMemberTeam(e.target.value as TeamName)}
+                       className="w-full pl-9 pr-8 py-2.5 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none"
+                     >
+                       {activeTeams.map(t => <option key={t} value={t} className="bg-white text-gray-800">{t}</option>)}
+                     </select>
+                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                       <ChevronDown size={14} className="text-white" />
+                     </div>
+                  </div>
+                )}
 
                 <button
                   onClick={handleAddMember}
-                  className="w-full bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-sm text-sm font-bold transition shadow-sm mb-6 flex items-center justify-center gap-2"
+                  className="w-full bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5 flex items-center justify-center gap-2"
                 >
                   <UserPlus size={16}/> Add Agent
                 </button>
 
                 <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
-                  {allMembers.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No agents found in system.</div>}
-                  {allMembers.map((member) => (
-                    <div key={member.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-sm p-3 flex justify-between items-center shadow-sm">
+                  {displayedMembers.length === 0 && <div className="text-xs text-gray-400 text-center mt-6">No agents found in this team.</div>}
+                  {displayedMembers.map((member) => (
+                    <div key={member.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
                       
                       {editingMemberId === member.id ? (
                         <div className="flex-1 flex gap-2 items-center">
@@ -1120,22 +1322,24 @@ const activeCols = columnsMap[selectedTeam] || [];
                             onChange={(e) => setEditMemberName(e.target.value)} 
                             className="flex-1 px-2 py-1 text-sm border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           />
-                          <select 
-                            value={editMemberTeam} 
-                            onChange={(e: any) => setEditMemberTeam(e.target.value)} 
-                            className="w-32 px-2 py-1 text-[10px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          >
-                            {activeTeams.map(t => <option key={t} value={t}>{t.replace(' Team', '')}</option>)}
-                          </select>
-                          <button onClick={() => handleSaveMember(member.id)} className="text-[#1C6B53] hover:text-emerald-700">
+                          {userProfile?.role === 'manager' && (
+                            <select 
+                              value={editMemberTeam} 
+                              onChange={(e: any) => setEditMemberTeam(e.target.value)} 
+                              className="w-32 px-2 py-1 text-[10px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              {activeTeams.map(t => <option key={t} value={t}>{t.replace(' Team', '')}</option>)}
+                            </select>
+                          )}
+                          <button onClick={() => handleSaveMember(member.id)} className="text-[#1C6B53] hover:text-emerald-700 p-1">
                             <Save size={14}/>
                           </button>
                         </div>
                       ) : (
                         <>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{member.agent_name}</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{member.agent_name}</span>
                           <div className="flex items-center gap-3">
-                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wider whitespace-nowrap">
+                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider whitespace-nowrap">
                               {member.team.replace(' Team', '')}
                             </span>
                             <div className="flex gap-2">
@@ -1154,121 +1358,229 @@ const activeCols = columnsMap[selectedTeam] || [];
                 </div>
               </div>
 
-              {/* Columns Card */}
-              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <Columns size={18} className="text-gray-600 dark:text-gray-300" />
-                    <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns</h3>
+              {/* Columns Card - ONLY FOR MANAGER */}
+              {userProfile?.role === 'manager' && (
+                <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <Columns size={18} className="text-gray-600 dark:text-gray-300" />
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns</h3>
+                    </div>
+                    <select 
+                      value={manageColsTeam} 
+                      onChange={(e: any) => setManageColsTeam(e.target.value)}
+                      className="text-xs bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1 text-gray-700 dark:text-gray-300 outline-none focus:border-[#1C6B53]"
+                    >
+                      {activeTeams.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </div>
-                  <select 
-                    value={manageColsTeam} 
-                    onChange={(e: any) => setManageColsTeam(e.target.value)}
-                    className="text-xs bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-300 outline-none focus:border-[#1C6B53]"
+                  
+                  <input
+                    type="text"
+                    placeholder="e.g. QUALITY"
+                    value={newColLabel}
+                    onChange={(e) => setNewColLabel(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53]"
+                  />
+
+                  <div className="flex gap-3 mb-3">
+                    <div className="flex-1 flex flex-col">
+                      <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
+                      <div className="relative">
+                        <select value={newColType} onChange={(e: any) => setNewColType(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
+                          <option value="number" className="bg-white text-gray-800">Number</option>
+                          <option value="time" className="bg-white text-gray-800">Time (mm:ss)</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                          <ChevronDown size={14} className="text-white" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
+                      <div className="relative">
+                        <select value={newColAgg} onChange={(e: any) => setNewColAgg(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
+                          <option value="average" className="bg-white text-gray-800">Average</option>
+                          <option value="sum" className="bg-white text-gray-800">Sum</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                          <ChevronDown size={14} className="text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleAddColumn}
+                    className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-6"
                   >
-                    {activeTeams.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                    <Plus size={16} /> Add Column
+                  </button>
+
+                  <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
+                    {manageCols.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No columns configured.</div>}
+                    {manageCols.map((col) => (
+                      <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                        
+                        {editingColId === col.id ? (
+                          <div className="flex-1 flex gap-2 items-center">
+                            <input 
+                              type="text" 
+                              value={editColLabel} 
+                              onChange={(e) => setEditColLabel(e.target.value)} 
+                              className="flex-1 px-2 py-1 text-[11px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white w-20"
+                            />
+                            <select 
+                              value={editColType} 
+                              onChange={(e: any) => setEditColType(e.target.value)} 
+                              className="w-16 px-1 py-1 text-[9px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              <option value="number">Num</option>
+                              <option value="time">Time</option>
+                            </select>
+                            <select 
+                              value={editColAgg} 
+                              onChange={(e: any) => setEditColAgg(e.target.value)} 
+                              className="w-16 px-1 py-1 text-[9px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              <option value="average">Avg</option>
+                              <option value="sum">Sum</option>
+                            </select>
+                            <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700">
+                              <Save size={14}/>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{col.label}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+                                {col.type} • {col.aggregation}
+                              </span>
+                              <div className="flex gap-2">
+                                <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" title="Edit">
+                                  <Edit2 size={14} />
+                                </button>
+                                <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 transition" title="Delete">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TL & Manager Profile Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)} />
+          <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 max-w-md w-full border border-gray-100 dark:border-gray-800">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">Profile Settings</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Update your display name, picture & password</p>
+              </div>
+              <button onClick={() => setShowProfileModal(false)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+                <X size={20} />
+              </button>
+            </div>
+
+            {profileError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-xl">
+                {profileError}
+              </div>
+            )}
+
+            {profileSuccess && (
+              <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-[#1C6B53] dark:text-emerald-400 text-xs font-semibold rounded-xl">
+                {profileSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveTLProfile} className="space-y-4">
+              {/* Photo Upload */}
+              <div className="flex flex-col items-center justify-center mb-4">
+                <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-800 mb-2 overflow-hidden border-2 border-gray-200 dark:border-gray-700 relative group flex items-center justify-center shadow-inner">
+                  {profilePhoto ? (
+                    <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <Users size={32} className="text-gray-400" />
+                  )}
+                  <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition rounded-full">
+                    <Camera size={20} className="mb-1" />
+                    <span className="text-[10px] font-bold">Change</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleProfilePhotoUpload} />
+                  </label>
+                </div>
+                <span className="text-[11px] text-gray-400 font-medium">Click photo to upload new image</span>
+              </div>
+
+              {/* Display Name */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">Display Name / Username</label>
                 <input
                   type="text"
-                  placeholder="e.g. QUALITY"
-                  value={newColLabel}
-                  onChange={(e) => setNewColLabel(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-sm text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53]"
+                  required
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
                 />
+              </div>
 
-                <div className="flex gap-3 mb-3">
-                  <div className="flex-1 flex flex-col">
-                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
-                    <div className="relative">
-                      <select value={newColType} onChange={(e: any) => setNewColType(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-sm appearance-none cursor-pointer outline-none">
-                        <option value="number" className="bg-white text-gray-800">Number</option>
-                        <option value="time" className="bg-white text-gray-800">Time (mm:ss)</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                        <ChevronDown size={14} className="text-white" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 flex flex-col">
-                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
-                    <div className="relative">
-                      <select value={newColAgg} onChange={(e: any) => setNewColAgg(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-sm appearance-none cursor-pointer outline-none">
-                        <option value="average" className="bg-white text-gray-800">Average</option>
-                        <option value="sum" className="bg-white text-gray-800">Sum</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                        <ChevronDown size={14} className="text-white" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {/* Role & Team info */}
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 text-xs text-gray-500 space-y-1">
+                <div><strong className="text-gray-700 dark:text-gray-300">Account Role:</strong> {userProfile?.role === 'manager' ? 'Executive Manager' : 'Team Leader'}</div>
+                <div><strong className="text-gray-700 dark:text-gray-300">Assigned Team:</strong> {userProfile?.team || 'All Teams'}</div>
+                <div><strong className="text-gray-700 dark:text-gray-300">Email:</strong> {session?.email}</div>
+              </div>
 
-                <button
-                  onClick={handleAddColumn}
-                  className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-sm text-sm font-bold transition shadow-sm mb-6"
-                >
-                  <Plus size={16} /> Add Column
-                </button>
-
-                <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
-                  {manageCols.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No columns configured.</div>}
-                  {manageCols.map((col) => (
-                    <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-sm p-3 flex justify-between items-center shadow-sm">
-                      
-                      {editingColId === col.id ? (
-                        <div className="flex-1 flex gap-2 items-center">
-                          <input 
-                            type="text" 
-                            value={editColLabel} 
-                            onChange={(e) => setEditColLabel(e.target.value)} 
-                            className="flex-1 px-2 py-1 text-[11px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white w-20"
-                          />
-                          <select 
-                            value={editColType} 
-                            onChange={(e: any) => setEditColType(e.target.value)} 
-                            className="w-16 px-1 py-1 text-[9px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          >
-                            <option value="number">Num</option>
-                            <option value="time">Time</option>
-                          </select>
-                          <select 
-                            value={editColAgg} 
-                            onChange={(e: any) => setEditColAgg(e.target.value)} 
-                            className="w-16 px-1 py-1 text-[9px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          >
-                            <option value="average">Avg</option>
-                            <option value="sum">Sum</option>
-                          </select>
-                          <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700">
-                            <Save size={14}/>
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{col.label}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold px-2 py-1 rounded-sm uppercase tracking-wider">
-                              {col.type} • {col.aggregation}
-                            </span>
-                            <div className="flex gap-2">
-                              <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" title="Edit">
-                                <Edit2 size={14} />
-                              </button>
-                              <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 transition" title="Delete">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
+              {/* Change Password */}
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                <span className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Change Password (Optional)</span>
+                <div className="space-y-2.5">
+                  <input
+                    type="password"
+                    placeholder="New Password (min 6 chars)"
+                    value={newProfilePassword}
+                    onChange={(e) => setNewProfilePassword(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm New Password"
+                    value={confirmProfilePassword}
+                    onChange={(e) => setConfirmProfilePassword(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm"
+                  />
                 </div>
               </div>
 
-            </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] transition shadow-md shadow-[#1C6B53]/20 disabled:opacity-50"
+                >
+                  {savingProfile ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
