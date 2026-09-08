@@ -1100,48 +1100,60 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="flex gap-2.5 items-center flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap sm:flex-nowrap">
             {/* Dark Mode Toggle */}
             <button 
               onClick={toggleDarkMode} 
-              className="p-2.5 rounded-xl hover:bg-gray-200/70 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" 
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
               title="Toggle dark mode"
             >
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              {isDarkMode ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} />}
             </button>
 
-            {/* Manage Team / System Config Button - Beside Profile */}
+            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+
+            {/* Manage Team / System Config */}
             <button
               onClick={openManageModal}
-              className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-xl text-xs sm:text-sm font-bold shadow-sm"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
               title={userProfile?.role === 'manager' ? 'System Configuration' : 'Manage Team'}
             >
-              {userProfile?.role === 'manager' ? <Settings size={15} className="text-[#1C6B53] dark:text-emerald-400" /> : <Users size={15} className="text-[#1C6B53] dark:text-emerald-400" />}
+              <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                {userProfile?.role === 'manager' ? <Settings size={13} /> : <Users size={13} />}
+              </div>
               <span>{userProfile?.role === 'manager' ? 'System Config' : 'Manage Team'}</span>
             </button>
 
-            {/* Profile Button - Pencil icon removed */}
+            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+
+            {/* Profile Button */}
             <button 
               onClick={openProfileModal}
-              className="flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800 group"
-              title="Profile"
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group"
+              title="Profile Settings"
             >
-              <div className="w-7 h-7 rounded-full bg-[#1C6B53]/15 dark:bg-emerald-950 flex items-center justify-center overflow-hidden border border-[#1C6B53]/30 text-[#1C6B53] dark:text-emerald-400 font-black text-xs">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1C6B53] to-emerald-400 flex items-center justify-center overflow-hidden ring-2 ring-[#1C6B53]/20 dark:ring-emerald-400/20 text-white font-black text-xs shadow-sm flex-shrink-0">
                 {userProfile?.photo_url ? (
                   <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={14} />
+                  userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={13} />
                 )}
               </div>
-              <span className="max-w-[130px] truncate">{userProfile?.name || (userProfile?.role === 'manager' ? 'Jalal Burghol' : 'Team Lead')}</span>
+              <span className="max-w-[130px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
+                {userProfile?.name || (userProfile?.role === 'manager' ? 'Jalal Burghol' : 'Team Lead')}
+              </span>
             </button>
+
+            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
 
             {/* Logout Button */}
             <button 
               onClick={handleLogout} 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition border border-red-200 dark:border-red-900/50 shadow-sm bg-white dark:bg-gray-800"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all"
+              title="Logout"
             >
-              <LogOut size={15} /> Logout
+              <LogOut size={14} />
+              <span>Logout</span>
             </button>
           </div>
         </div>
