@@ -850,7 +850,19 @@ export default function Dashboard() {
     return <AgentDashboard userProfile={userProfile} onLogout={handleLogout} columnsMap={columnsMap} />;
   }
 
-  const activeCols = columnsMap[selectedTeam] || [];
+  
+  const activeTeams = userProfile?.role === 'tl' && userProfile?.team 
+    ? TEAMS.filter(t => t === userProfile.team) 
+    : TEAMS;
+
+  // Ensure selectedTeam is valid for TL
+  useEffect(() => {
+    if (userProfile?.role === 'tl' && userProfile?.team && selectedTeam !== userProfile.team) {
+      setSelectedTeam(userProfile.team);
+    }
+  }, [userProfile, selectedTeam]);
+
+const activeCols = columnsMap[selectedTeam] || [];
   const manageCols = columnsMap[manageColsTeam] || [];
 
   return (
@@ -874,7 +886,7 @@ export default function Dashboard() {
 
         {/* Team Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {TEAMS.map((teamName) => {
+          {activeTeams.map((teamName) => {
             const isActive = selectedTeam === teamName;
             const teamCols = columnsMap[teamName] || [];
             return (
@@ -1080,7 +1092,7 @@ export default function Dashboard() {
                      onChange={(e) => setNewMemberTeam(e.target.value as TeamName)}
                      className="w-full pl-9 pr-8 py-2.5 bg-[#1C6B53] text-white text-sm font-medium rounded-sm appearance-none cursor-pointer outline-none"
                    >
-                     {TEAMS.map(t => <option key={t} value={t} className="bg-white text-gray-800">{t}</option>)}
+                     {activeTeams.map(t => <option key={t} value={t} className="bg-white text-gray-800">{t}</option>)}
                    </select>
                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                      <ChevronDown size={14} className="text-white" />
@@ -1112,7 +1124,7 @@ export default function Dashboard() {
                             onChange={(e: any) => setEditMemberTeam(e.target.value)} 
                             className="w-32 px-2 py-1 text-[10px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           >
-                            {TEAMS.map(t => <option key={t} value={t}>{t.replace(' Team', '')}</option>)}
+                            {activeTeams.map(t => <option key={t} value={t}>{t.replace(' Team', '')}</option>)}
                           </select>
                           <button onClick={() => handleSaveMember(member.id)} className="text-[#1C6B53] hover:text-emerald-700">
                             <Save size={14}/>
@@ -1153,7 +1165,7 @@ export default function Dashboard() {
                     onChange={(e: any) => setManageColsTeam(e.target.value)}
                     className="text-xs bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-300 outline-none focus:border-[#1C6B53]"
                   >
-                    {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+                    {activeTeams.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 
