@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseClient";
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "firebase/auth";
 import { collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, doc, setDoc } from "firebase/firestore";
 import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save } from "lucide-react";
 
@@ -52,6 +52,27 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
+  const [forcePasswordChange, setForcePasswordChange] = useState(userProfile.mustChangePassword || false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const handleChangePassword = async (e: any) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) return setPasswordError("Passwords do not match");
+    if (newPassword.length < 6) return setPasswordError("Password must be at least 6 characters");
+    
+    try {
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, newPassword);
+        await updateDoc(doc(db, 'users', auth.currentUser.uid), { mustChangePassword: false });
+        setForcePasswordChange(false);
+      }
+    } catch(err: any) {
+      setPasswordError(err.message);
+    }
+  };
+
   
   const teamCols = columnsMap[userProfile.team] || [];
   const tableName =
