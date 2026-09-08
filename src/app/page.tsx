@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseClient";
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save } from "lucide-react";
+import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
 const TEAMS: TeamName[] = ['Younis Kamal Team', 'Ankido Buya Team', 'Mohammed Dlshad Team'];
@@ -71,24 +71,28 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
-  const [forcePasswordChange, setForcePasswordChange] = useState(userProfile.mustChangePassword || false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(
+    userProfile.mustChangePassword === true || userProfile.mustChangePassword === undefined
+  );
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
   const handleChangePassword = async (e: any) => {
     e.preventDefault();
+    setPasswordError("");
     if (newPassword !== confirmPassword) return setPasswordError("Passwords do not match");
     if (newPassword.length < 6) return setPasswordError("Password must be at least 6 characters");
     
     try {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword);
-        await updateDoc(doc(db, 'users', auth.currentUser.uid), { mustChangePassword: false });
+        await setDoc(doc(db, 'users', auth.currentUser.uid), { mustChangePassword: false }, { merge: true });
+        userProfile.mustChangePassword = false;
         setForcePasswordChange(false);
       }
     } catch(err: any) {
-      setPasswordError(err.message);
+      setPasswordError(err.message || "Failed to update password");
     }
   };
 
@@ -100,7 +104,7 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
     'mohammed_metrics';
 
   useEffect(() => {
-    if (showEditProfile) {
+    if (showEditProfile || forcePasswordChange) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -108,7 +112,7 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showEditProfile]);
+  }, [showEditProfile, forcePasswordChange]);
 
   useEffect(() => {
     setLoading(true);
@@ -432,6 +436,78 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
         </div>
       )}
 
+      {/* Force Change Password Modal for First-Time Login */}
+      {forcePasswordChange && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overscroll-contain">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 sm:p-8 max-w-md w-full border border-gray-100 dark:border-gray-800 relative">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-[#1C6B53]/10 dark:bg-emerald-950 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 mb-4 shadow-inner">
+                <ShieldCheck size={32} />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+                First Time Login Security
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+                Welcome, <strong className="text-gray-800 dark:text-gray-200">{userProfile.agent_name || userProfile.name}</strong>! As this is your first time signing in, you must set your private personal password before accessing the dashboard.
+              </p>
+            </div>
+
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-xl">
+                {passwordError}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="At least 6 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/25 transition-all"
+              >
+                Set New Password & Access Dashboard
+              </button>
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="text-xs text-gray-400 hover:text-red-500 font-semibold transition"
+                >
+                  Cancel and Sign Out
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -464,6 +540,32 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState("");
   const [profileSuccess, setProfileSuccess] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // Forgot Password Modal State
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState("");
+  const [forgotError, setForgotError] = useState("");
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+    if (!forgotEmail.trim()) {
+      setForgotError("Please enter your email address");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      setForgotSuccess("Password reset instructions sent to your email. Please check your inbox or spam folder.");
+    } catch (err: any) {
+      setForgotError(err.message || "Failed to send reset email");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const openProfileModal = () => {
     setProfileName(userProfile?.name || "");
@@ -509,16 +611,17 @@ export default function Dashboard() {
       }
 
       if (session?.uid) {
-        await updateDoc(doc(db, 'users', session.uid), {
+        const payload: any = {
           name: profileName,
           photo_url: profilePhoto,
-          ...(newProfilePassword ? { mustChangePassword: false } : {})
-        });
+        };
+        if (newProfilePassword) {
+          payload.mustChangePassword = false;
+        }
+        await setDoc(doc(db, 'users', session.uid), payload, { merge: true });
         setUserProfile((prev: any) => ({
           ...prev,
-          name: profileName,
-          photo_url: profilePhoto,
-          ...(newProfilePassword ? { mustChangePassword: false } : {})
+          ...payload
         }));
       }
 
@@ -562,7 +665,7 @@ export default function Dashboard() {
 
   // Prevent background scroll when modal is open
   useEffect(() => {
-    if (showManageMembers || showProfileModal || deleteTarget) {
+    if (showManageMembers || showProfileModal || deleteTarget || showForgotModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -570,7 +673,7 @@ export default function Dashboard() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showManageMembers, showProfileModal, deleteTarget]);
+  }, [showManageMembers, showProfileModal, deleteTarget, showForgotModal]);
 
   // Real-time columns synchronization across all teams, TLs, and Agents
   useEffect(() => {
@@ -668,15 +771,51 @@ export default function Dashboard() {
       setSession(user);
       if (user) {
         // Fetch user profile to check role
-        import('firebase/firestore').then(async ({ getDoc, doc }) => {
+        import('firebase/firestore').then(async ({ getDoc, doc, setDoc }) => {
            try {
              const userDoc = await getDoc(doc(db, 'users', user.uid));
-             if (userDoc.exists()) {
-               setUserProfile(userDoc.data());
+             const isMohammed = user.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com';
+             const isJalal = user.email?.toLowerCase() === 'jalal.burghol@fib.iq';
+
+             if (isMohammed) {
+               const adminProfile: any = {
+                 role: 'manager',
+                 team: 'Mohammed Dlshad Team',
+                 name: 'Mohammed Dlshad',
+                 email: user.email,
+                 mustChangePassword: false,
+                 ...(userDoc.exists() ? userDoc.data() : {})
+               };
+               adminProfile.role = 'manager';
+               adminProfile.team = adminProfile.team || 'Mohammed Dlshad Team';
+               setUserProfile(adminProfile);
+               setSelectedTeam('Mohammed Dlshad Team');
+               await setDoc(doc(db, 'users', user.uid), adminProfile, { merge: true });
+             } else if (isJalal) {
+               const jalalProfile: any = {
+                 role: 'manager',
+                 team: 'All',
+                 name: 'Jalal Burghol',
+                 email: user.email,
+                 mustChangePassword: false,
+                 ...(userDoc.exists() ? userDoc.data() : {})
+               };
+               jalalProfile.role = 'manager';
+               setUserProfile(jalalProfile);
+               await setDoc(doc(db, 'users', user.uid), jalalProfile, { merge: true });
+             } else if (userDoc.exists()) {
+               const data = userDoc.data();
+               setUserProfile(data);
+               if (data.role === 'tl' && data.team) {
+                 setSelectedTeam(data.team as TeamName);
+               }
              } else {
-               setUserProfile({ role: 'tl' }); // Default to TL if no record
+               setUserProfile({ role: 'tl' });
              }
-           } catch(e) { console.error(e); setUserProfile({ role: 'tl' }); }
+           } catch(e) { 
+             console.error(e); 
+             setUserProfile({ role: 'tl' }); 
+           }
            setAuthLoading(false);
         });
       } else {
@@ -1018,23 +1157,26 @@ export default function Dashboard() {
 
       if (!session) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 transition-colors bg-gradient-to-br from-[#E8F3EF] to-[#F9F8F4] dark:from-gray-900 dark:to-gray-800">
-          <div className="w-full max-w-md p-8 sm:p-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-white/50 dark:border-gray-700/50 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center p-4 transition-colors bg-gradient-to-br from-[#E8F3EF] to-[#F9F8F4] dark:from-gray-900 dark:to-gray-800 relative">
+          <div className="w-full max-w-md p-8 sm:p-10 bg-white/85 dark:bg-gray-800/85 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] border border-white/60 dark:border-gray-700/60 relative overflow-hidden">
             <div className="absolute top-6 right-6">
-               <button onClick={toggleDarkMode} className="p-2.5 rounded-full bg-white/50 dark:bg-gray-700/50 hover:bg-white dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all shadow-sm backdrop-blur-sm">
+               <button onClick={toggleDarkMode} className="p-2.5 rounded-full bg-white/60 dark:bg-gray-700/60 hover:bg-white dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all shadow-sm backdrop-blur-sm">
                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                </button>
             </div>
             
-            <div className="flex flex-col items-center mb-8 mt-4">
-              <div className="h-16 mb-6 flex items-center justify-center">
-                <img src="/logo.webp" alt="FIB Logo" className="w-full h-full object-contain" />
+            <div className="flex flex-col items-center mb-8 mt-2">
+              <div className="h-16 mb-4 flex items-center justify-center">
+                <img src="/logo.webp" alt="FIB Logo" className="h-14 sm:h-16 w-auto object-contain drop-shadow-sm" />
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] font-bold tracking-wide uppercase mb-3">
+                <span>Performance Portal</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-center tracking-tight text-gray-900 dark:text-white leading-tight">
-                Team Leader & <br /> Agent Dashboard
+                Team Leader & Agent Dashboard
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 font-medium text-center">
-                Welcome back. Please sign in to continue.
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium text-center">
+                Welcome Back. Please Sign In To Continue.
               </p>
             </div>
             
@@ -1050,7 +1192,21 @@ export default function Dashboard() {
                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700 rounded-xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-[#1C6B53] focus:ring-4 focus:ring-[#1C6B53]/10" placeholder="name@agent.com" />
                </div>
                <div>
-                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-gray-400 ml-1">Password</label>
+                 <div className="flex justify-between items-center mb-2 ml-1">
+                   <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Password</label>
+                   <button 
+                     type="button" 
+                     onClick={() => { 
+                       setForgotEmail(email); 
+                       setForgotError(''); 
+                       setForgotSuccess(''); 
+                       setShowForgotModal(true); 
+                     }} 
+                     className="text-xs font-semibold text-[#1C6B53] dark:text-emerald-400 hover:text-[#155a45] hover:underline transition"
+                   >
+                     Forgot Password?
+                   </button>
+                 </div>
                  <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700 rounded-xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-[#1C6B53] focus:ring-4 focus:ring-[#1C6B53]/10" placeholder="••••••••" />
                </div>
                <button type="submit" className="w-full py-4 rounded-xl text-sm font-bold text-white transition-all mt-6 bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/20 hover:shadow-[#1C6B53]/40 transform hover:-translate-y-0.5 active:translate-y-0">
@@ -1058,6 +1214,68 @@ export default function Dashboard() {
                </button>
             </form>
           </div>
+
+          {/* Forgot Password Modal */}
+          {showForgotModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 max-w-md w-full border border-gray-100 dark:border-gray-800 relative">
+                <div className="flex justify-between items-start mb-5">
+                  <div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white">Forgot Password</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter your email to receive a password reset link.</p>
+                  </div>
+                  <button onClick={() => setShowForgotModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {forgotError && (
+                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-xl">
+                    {forgotError}
+                  </div>
+                )}
+
+                {forgotSuccess && (
+                  <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-[#1C6B53] dark:text-emerald-400 text-xs font-semibold rounded-xl leading-relaxed">
+                    {forgotSuccess}
+                  </div>
+                )}
+
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@agent.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="flex-1 py-3 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] transition shadow-md shadow-[#1C6B53]/20 disabled:opacity-50"
+                    >
+                      {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -1543,21 +1761,21 @@ export default function Dashboard() {
 
                   {manageColsTeam === 'ALL' && (
                     <div className="mb-3 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl text-[11px] text-[#1C6B53] dark:text-emerald-300 font-semibold flex items-center gap-1.5">
-                      <span>✓ Syncs across all Team Leaders & Agent dashboards automatically</span>
+                      <span>✓ Syncs Across All Team Leaders & Agent Dashboards Automatically</span>
                     </div>
                   )}
                   
                   <input
                     type="text"
-                    placeholder="e.g. QUALITY"
+                    placeholder="KPI Name (e.g. Quality, Exam, Prod)"
                     value={newColLabel}
                     onChange={(e) => setNewColLabel(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53]"
+                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53] font-medium"
                   />
 
                   <div className="flex gap-3 mb-3">
                     <div className="flex-1 flex flex-col">
-                      <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
+                      <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
                       <div className="relative">
                         <select value={newColType} onChange={(e: any) => setNewColType(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
                           <option value="number" className="bg-white text-gray-800">Number</option>
@@ -1569,7 +1787,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex-1 flex flex-col">
-                      <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
+                      <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
                       <div className="relative">
                         <select value={newColAgg} onChange={(e: any) => setNewColAgg(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
                           <option value="average" className="bg-white text-gray-800">Average</option>
@@ -1586,7 +1804,7 @@ export default function Dashboard() {
                     onClick={handleAddColumn}
                     className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5"
                   >
-                    <Plus size={16} /> Add Column
+                    <Plus size={16} /> Add KPI Column
                   </button>
 
                   <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
@@ -1600,40 +1818,40 @@ export default function Dashboard() {
                               type="text" 
                               value={editColLabel} 
                               onChange={(e) => setEditColLabel(e.target.value)} 
-                              className="flex-1 px-2 py-1 text-[11px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white w-20"
+                              className="flex-1 px-2.5 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             />
                             <select 
                               value={editColType} 
                               onChange={(e: any) => setEditColType(e.target.value)} 
-                              className="w-16 px-1 py-1 text-[9px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                              className="px-2 py-1.5 text-[10px] font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
-                              <option value="number">Num</option>
+                              <option value="number">Number</option>
                               <option value="time">Time</option>
                             </select>
                             <select 
                               value={editColAgg} 
                               onChange={(e: any) => setEditColAgg(e.target.value)} 
-                              className="w-16 px-1 py-1 text-[9px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                              className="px-2 py-1.5 text-[10px] font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
-                              <option value="average">Avg</option>
+                              <option value="average">Average</option>
                               <option value="sum">Sum</option>
                             </select>
-                            <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700">
+                            <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700 p-1 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
                               <Save size={14}/>
                             </button>
                           </div>
                         ) : (
                           <>
-                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{col.label}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
-                                {col.type} • {col.aggregation}
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{toTitleCase(col.label)}</span>
+                            <div className="flex items-center gap-2.5">
+                              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                {toTitleCase(col.type)} • {toTitleCase(col.aggregation)}
                               </span>
-                              <div className="flex gap-2">
-                                <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" title="Edit">
+                              <div className="flex gap-1.5">
+                                <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title="Edit KPI">
                                   <Edit2 size={14} />
                                 </button>
-                                <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 transition" title="Delete">
+                                <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 p-1" title="Delete KPI">
                                   <Trash2 size={14} />
                                 </button>
                               </div>
@@ -1658,8 +1876,8 @@ export default function Dashboard() {
           <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 max-w-md w-full border border-gray-100 dark:border-gray-800">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="text-xl font-black text-gray-900 dark:text-white">Profile Settings</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Update your display name, picture & password</p>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Profile Settings</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Update Your Display Name, Profile Photo & Password</p>
               </div>
               <button onClick={() => setShowProfileModal(false)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
                 <X size={20} />
@@ -1693,7 +1911,7 @@ export default function Dashboard() {
                     <input type="file" accept="image/*" className="hidden" onChange={handleProfilePhotoUpload} />
                   </label>
                 </div>
-                <span className="text-[11px] text-gray-400 font-medium">Click photo to upload new image</span>
+                <span className="text-[11px] text-gray-400 font-medium">Click Photo To Upload New Image</span>
               </div>
 
               {/* Display Name */}
@@ -1702,17 +1920,23 @@ export default function Dashboard() {
                 <input
                   type="text"
                   required
+                  placeholder="Your Full Name"
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
                 />
               </div>
 
-              {/* Role & Team info */}
-              <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 text-xs text-gray-500 space-y-1">
-                <div><strong className="text-gray-700 dark:text-gray-300">Account Role:</strong> {userProfile?.role === 'manager' ? 'Executive Manager' : 'Team Leader'}</div>
-                <div><strong className="text-gray-700 dark:text-gray-300">Assigned Team:</strong> {userProfile?.team || 'All Teams'}</div>
-                <div><strong className="text-gray-700 dark:text-gray-300">Email:</strong> {session?.email}</div>
+              {/* Role & Email info (Assigned Team removed) */}
+              <div className="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 text-xs text-gray-500 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gray-600 dark:text-gray-300">Account Role</span>
+                  <span className="font-bold text-gray-800 dark:text-white">{userProfile?.role === 'manager' ? 'Administrator / Manager' : 'Team Leader'}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
+                  <span className="font-semibold text-gray-600 dark:text-gray-300">Email Address</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200">{session?.email}</span>
+                </div>
               </div>
 
               {/* Change Password */}
@@ -1721,17 +1945,17 @@ export default function Dashboard() {
                 <div className="space-y-2.5">
                   <input
                     type="password"
-                    placeholder="New Password (min 6 chars)"
+                    placeholder="New Password (At least 6 characters)"
                     value={newProfilePassword}
                     onChange={(e) => setNewProfilePassword(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm"
+                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
                   />
                   <input
                     type="password"
                     placeholder="Confirm New Password"
                     value={confirmProfilePassword}
                     onChange={(e) => setConfirmProfilePassword(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm"
+                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
                   />
                 </div>
               </div>
