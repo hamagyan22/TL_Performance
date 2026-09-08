@@ -389,49 +389,49 @@ function AgentDashboard({
   };
 
   return (
-    <div className="min-h-screen p-6 md:p-10 font-sans bg-[#F9F8F4] dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen p-3.5 sm:p-6 md:p-10 font-sans bg-[#F9F8F4] dark:bg-gray-900 transition-colors">
       <div className="max-w-[1400px] mx-auto">
 
         {/* Top Brand Header (FIB Logo & Portal Controls) */}
-        <div className="relative z-50 flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/70 dark:border-gray-800">
-          <div className="flex items-center gap-3.5 sm:gap-5">
-            <div className="flex items-center gap-2">
-              <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain drop-shadow-xs" />
-            </div>
-            <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                Agent Dashboard
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                Performance & Scorecards Portal
-              </p>
+        <div className="relative z-50 flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-6 sm:mb-8 gap-3 sm:gap-4 pb-4 sm:pb-6 border-b border-gray-200/70 dark:border-gray-800">
+          <div className="flex items-center gap-3 sm:gap-5 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <img src="/logo.webp" alt="FIB Logo" className="h-9 sm:h-12 w-auto object-contain drop-shadow-xs" />
+              <div className="h-8 sm:h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
+              <div>
+                <h1 className="text-lg sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                  Agent Dashboard
+                </h1>
+                <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                  Performance & Scorecards Portal
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="relative z-50 flex items-center gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs flex-wrap">
+          <div className="relative z-50 flex items-center gap-1.5 sm:gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs flex-wrap w-full sm:w-auto justify-between sm:justify-end">
             {/* Agent Selector Dropdown in Preview Mode */}
             {previewMode && (
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-initial min-w-[130px]">
                 <button
                   type="button"
                   onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/60 dark:hover:bg-gray-700 border border-gray-200/80 dark:border-gray-600/80 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 transition shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-2.5 sm:px-3 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/60 dark:hover:bg-gray-700 border border-gray-200/80 dark:border-gray-600/80 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 transition shadow-xs cursor-pointer"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-[#1C6B53] dark:text-emerald-300 flex items-center justify-center text-[10px] font-black shrink-0">
                     {currentAgent?.agent_name ? currentAgent.agent_name.charAt(0).toUpperCase() : <Users size={11} />}
                   </div>
-                  <span className="truncate max-w-[120px] sm:max-w-[160px]">{currentAgent?.agent_name || "Select Agent"}</span>
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200/70 dark:bg-gray-600 text-gray-600 dark:text-gray-300 shrink-0">
+                  <span className="truncate max-w-[90px] sm:max-w-[160px]">{currentAgent?.agent_name || "Select Agent"}</span>
+                  <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200/70 dark:bg-gray-600 text-gray-600 dark:text-gray-300 shrink-0">
                     {currentAgent?.team?.replace(' Team', '') || ''}
                   </span>
-                  <ChevronDown size={13} className={`text-gray-400 dark:text-gray-400 transition-transform duration-200 ${agentDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={12} className={`text-gray-400 dark:text-gray-400 transition-transform duration-200 ${agentDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {agentDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setAgentDropdownOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 z-50 max-h-80 flex flex-col">
+                    <div className="absolute right-0 top-full mt-2 w-[calc(100vw-32px)] sm:w-72 max-w-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 z-50 max-h-80 flex flex-col">
                       <div className="relative mb-2">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
@@ -498,10 +498,10 @@ function AgentDashboard({
             {previewMode && onExitPreview && (
               <button
                 onClick={onExitPreview}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100/70 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-200/60 dark:border-emerald-800/60 shadow-xs transition active:scale-95 shrink-0"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100/70 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-200/60 dark:border-emerald-800/60 shadow-xs transition active:scale-95 shrink-0"
               >
                 <ArrowLeft size={13} />
-                <span>Back to Dashboard</span>
+                <span>Back</span>
               </button>
             )}
 
@@ -535,14 +535,14 @@ function AgentDashboard({
         </div>
         
         {/* Header with Profile */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white dark:bg-gray-800 p-6 sm:p-7 rounded-3xl shadow-sm border border-gray-200/70 dark:border-gray-700/80">
-          <div className="flex items-center gap-5">
-            <div className="relative group">
-              <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4 bg-white dark:bg-gray-800 p-4 sm:p-7 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-200/70 dark:border-gray-700/80">
+          <div className="flex items-center gap-3.5 sm:gap-5 w-full sm:w-auto">
+            <div className="relative group shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border-3 sm:border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center">
                 {memberDoc?.photo_url ? (
                   <img src={memberDoc.photo_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <Users size={32} className="text-gray-400" />
+                  <Users size={28} className="text-gray-400 sm:w-8 sm:h-8" />
                 )}
               </div>
               {!previewMode && (
@@ -555,27 +555,27 @@ function AgentDashboard({
                 </button>
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-xs font-bold tracking-wide">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] sm:text-xs font-bold tracking-wide">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{currentAgent?.team || 'Team Member'}</span>
+                  <span className="truncate max-w-[140px] sm:max-w-none">{currentAgent?.team || 'Team Member'}</span>
                 </div>
-                <span className="text-gray-400 dark:text-gray-500 text-xs font-medium">
+                <span className="text-gray-400 dark:text-gray-500 text-[11px] sm:text-xs font-medium hidden sm:inline">
                   {previewMode ? '• Agent Performance Scorecard' : '• Performance Scorecard'}
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white truncate">
                 {memberDoc?.display_name || currentAgent?.agent_name || currentAgent?.name}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-end sm:self-auto">
             {!previewMode && (
               <button 
                 onClick={() => setShowEditProfile(true)}
-                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/60 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600/80 rounded-2xl transition shadow-xs active:scale-95"
+                className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/60 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600/80 rounded-2xl transition shadow-xs active:scale-95"
               >
                 <Edit2 size={13} className="text-[#1C6B53] dark:text-emerald-400" />
                 <span>Edit Profile</span>
@@ -587,48 +587,48 @@ function AgentDashboard({
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">Loading performance data...</div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-4 sm:space-y-5">
 
             {/* Year Performance Overview (FIB Emerald Theme - Modern & Ultra-Sleek) */}
-            <div className="bg-gradient-to-br from-[#0C3227] via-[#124235] to-[#0A281F] rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#0C3227]/20 border border-emerald-500/25 relative overflow-hidden text-white">
+            <div className="bg-gradient-to-br from-[#0C3227] via-[#124235] to-[#0A281F] rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl shadow-[#0C3227]/20 border border-emerald-500/25 relative overflow-hidden text-white">
               {/* Subtle ambient brand glow in background */}
               <div className="absolute -top-24 -right-24 w-72 h-72 bg-[#1C6B53]/25 rounded-full blur-3xl pointer-events-none" />
               <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-[#00A887]/15 rounded-full blur-3xl pointer-events-none" />
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 relative z-10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 sm:pb-6 border-b border-white/10 relative z-10">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-400/15 border border-emerald-400/25 text-emerald-300 text-[11px] font-bold tracking-widest uppercase mb-2">
-                    <Sparkles size={12} className="text-emerald-300" />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-xl bg-emerald-400/15 border border-emerald-400/25 text-emerald-300 text-[10px] sm:text-[11px] font-bold tracking-widest uppercase mb-1.5">
+                    <Sparkles size={11} className="text-emerald-300" />
                     <span>Year Performance</span>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                  <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight leading-tight">
                     {selectedYear} Overview
                   </h2>
-                  <p className="text-xs text-emerald-100/70 mt-1 font-medium">
-                    Consolidated annual metrics calculated across all 12 months
+                  <p className="text-[11px] sm:text-xs text-emerald-100/70 mt-0.5 sm:mt-1 font-medium">
+                    Consolidated annual metrics across all 12 months
                   </p>
                 </div>
                 
-                <div className="flex items-center gap-2.5 self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-inner">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-100 tracking-wide">12 Months Consolidated</span>
+                <div className="flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-inner">
+                  <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] sm:text-xs font-bold text-emerald-100 tracking-wide">12 Months Consolidated</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 mt-6 relative z-10">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 mt-4 sm:mt-6 relative z-10">
                 {teamCols.map((col: any) => {
                   const yearAvg = avgCols(months, col);
                   return (
                     <div 
                       key={col.id} 
-                      className="relative overflow-hidden bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/15 hover:border-emerald-400/40 rounded-2xl p-4 transition-all duration-200 group shadow-sm hover:shadow-md flex flex-col justify-between"
+                      className="relative overflow-hidden bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/15 hover:border-emerald-400/40 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-200 group shadow-sm hover:shadow-md flex flex-col justify-between"
                     >
-                      <span className="text-xs font-semibold text-emerald-100/80 group-hover:text-white transition-colors truncate block">
+                      <span className="text-[11px] sm:text-xs font-semibold text-emerald-100/80 group-hover:text-white transition-colors truncate block">
                         {toTitleCase(col.label)}
                       </span>
                       
-                      <div className="mt-2.5 flex items-baseline">
-                        <span className="text-2xl font-black text-white tracking-tight leading-none">
+                      <div className="mt-2 flex items-baseline">
+                        <span className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none">
                           {yearAvg}
                         </span>
                       </div>
@@ -639,14 +639,14 @@ function AgentDashboard({
             </div>
 
             {/* Month / Period Selector Toolbar with Year Dropdown beside months */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-2">
-              <div className="flex items-center px-1 overflow-x-auto scrollbar-hide gap-1.5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-1.5 sm:p-2">
+              <div className="flex items-center px-1 overflow-x-auto scrollbar-hide gap-1 sm:gap-1.5">
                 {/* Modern Year Select Dropdown beside months */}
-                <div className="relative shrink-0 mr-1">
+                <div className="relative shrink-0 mr-0.5 sm:mr-1">
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
-                    className="appearance-none pl-3.5 pr-8 py-2 text-xs font-black rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/60 transition-all"
+                    className="appearance-none pl-3 pr-7 py-1.5 sm:pl-3.5 sm:pr-8 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/60 transition-all"
                   >
                     <option value="2026">2026</option>
                     <option value="2027">2027</option>
@@ -654,17 +654,17 @@ function AgentDashboard({
                     <option value="2029">2029</option>
                     <option value="2030">2030</option>
                   </select>
-                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400 font-bold" />
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400 font-bold" />
                 </div>
 
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 sm:mx-1 shrink-0" />
 
                 {/* Month tabs */}
                 {months.map(m => (
                   <button
                     key={m}
                     onClick={() => setSelectedMonth(m)}
-                    className={`shrink-0 px-3.5 py-1.5 text-xs font-black rounded-xl transition-all duration-150 ${
+                    className={`shrink-0 px-2.5 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-black rounded-xl transition-all duration-150 ${
                       selectedMonth === m
                         ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
@@ -674,14 +674,14 @@ function AgentDashboard({
                   </button>
                 ))}
 
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 sm:mx-1 shrink-0" />
 
                 {/* Period tabs */}
                 {PERIODS.map(p => (
                   <button
                     key={p.label}
                     onClick={() => setSelectedMonth(p.label)}
-                    className={`shrink-0 px-3 py-1.5 text-xs font-black rounded-xl transition-all duration-150 whitespace-nowrap ${
+                    className={`shrink-0 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-black rounded-xl transition-all duration-150 whitespace-nowrap ${
                       selectedMonth === p.label
                         ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
@@ -694,7 +694,7 @@ function AgentDashboard({
             </div>
 
             {/* KPI Cards — Grand, High-Impact Modern Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-5">
               {teamCols.map((col: any) => {
                 const meta = KPI_META[col.id] || {
                   icon: Activity,
@@ -710,23 +710,23 @@ function AgentDashboard({
                 return (
                   <div 
                     key={col.id} 
-                    className="group relative overflow-hidden bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-7 border border-gray-200/80 dark:border-gray-700/80 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between min-h-[180px] sm:min-h-[200px]"
+                    className="group relative overflow-hidden bg-white dark:bg-gray-800/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-7 border border-gray-200/80 dark:border-gray-700/80 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between min-h-[145px] sm:min-h-[190px]"
                   >
                     {/* Top colored accent indicator line */}
-                    <div className={`absolute top-0 left-0 right-0 h-1.5 ${meta.border}`} />
+                    <div className={`absolute top-0 left-0 right-0 h-1 sm:h-1.5 ${meta.border}`} />
 
                     <div>
                       {/* Header: Icon + Metric Title */}
-                      <div className="flex items-center justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${meta.bgLight} ${meta.bgDark} ${meta.color} shadow-xs group-hover:scale-110 transition-transform`}>
-                            <IconComp size={19} strokeWidth={2.5} />
+                      <div className="flex items-center justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
+                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 ${meta.bgLight} ${meta.bgDark} ${meta.color} shadow-xs group-hover:scale-110 transition-transform`}>
+                            <IconComp size={16} strokeWidth={2.5} className="sm:w-5 sm:h-5" />
                           </div>
                           <div className="min-w-0">
                             <span className="text-xs sm:text-sm font-extrabold text-gray-700 dark:text-gray-200 tracking-tight block truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                               {toTitleCase(col.label)}
                             </span>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium block truncate">
+                            <span className="hidden sm:block text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate">
                               {meta.label}
                             </span>
                           </div>
@@ -734,18 +734,18 @@ function AgentDashboard({
                       </div>
 
                       {/* Hero Big Value */}
-                      <div className="my-2">
-                        <div className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                      <div className="my-1.5 sm:my-2">
+                        <div className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-none break-all sm:break-normal">
                           {val}
                         </div>
                       </div>
                     </div>
 
                     {/* Card Footer */}
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/70 flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-                      <span className="flex items-center gap-1.5">
+                    <div className="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700/70 flex items-center justify-between text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                      <span className="flex items-center gap-1 sm:gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span>Active Period</span>
+                        <span className="hidden xs:inline sm:inline">Active</span>
                       </span>
                       <span className="font-bold text-gray-600 dark:text-gray-300">{selectedMonth} {selectedYear}</span>
                     </div>
@@ -1892,33 +1892,33 @@ export default function Dashboard() {
     };
 
     return (
-      <div className="min-h-screen p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
+      <div className="min-h-screen p-3.5 sm:p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
         <div className="max-w-[1400px] mx-auto">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/60 dark:border-gray-800">
-            <div className="flex items-center gap-3.5 sm:gap-5">
-              <div className="flex items-center gap-2">
-                <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain" />
-              </div>
-              <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                  {isAdmin ? 'Administrator Dashboard' : isManager ? 'Manager Dashboard' : 'Team Leader Dashboard'}
-                </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                  {isAdmin ? 'System Administration & Performance Analytics' : isManager ? 'Executive Oversight & Analytics' : 'Performance & Quality Analytics'}
-                </p>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-6 sm:mb-8 gap-3 sm:gap-4 pb-4 sm:pb-6 border-b border-gray-200/60 dark:border-gray-800">
+            <div className="flex items-center gap-3 sm:gap-5 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <img src="/logo.webp" alt="FIB Logo" className="h-9 sm:h-12 w-auto object-contain" />
+                <div className="h-8 sm:h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
+                <div>
+                  <h1 className="text-lg sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                    {isAdmin ? 'Administrator Dashboard' : isManager ? 'Manager Dashboard' : 'Team Leader Dashboard'}
+                  </h1>
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                    {isAdmin ? 'System Administration & Performance Analytics' : isManager ? 'Executive Oversight & Analytics' : 'Performance & Quality Analytics'}
+                  </p>
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap w-full sm:w-auto justify-between sm:justify-end">
               {/* Dark Mode Toggle */}
               <button 
                 onClick={toggleDarkMode} 
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                className="w-8 sm:w-9 h-8 sm:h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
                 title="Toggle Dark Mode"
               >
-                {isDarkMode ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} />}
+                {isDarkMode ? <Sun size={16} className="text-amber-500" /> : <Moon size={16} />}
               </button>
 
               {/* Agent View Button (For Managers: Mohammed Dlshad & Jalal Burghol) */}
@@ -1927,13 +1927,13 @@ export default function Dashboard() {
                   <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
                   <button
                     onClick={() => setShowAgentPreview(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
                     title="Agent View"
                   >
                     <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
                       <LayoutDashboard size={13} />
                     </div>
-                    <span>Agent View</span>
+                    <span className="hidden xs:inline sm:inline">Agent View</span>
                   </button>
                 </>
               )}
@@ -1944,13 +1944,13 @@ export default function Dashboard() {
                   <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
                   <button
                     onClick={openManageModal}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
                     title="System Configuration"
                   >
                     <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
                       <Settings size={13} />
                     </div>
-                    <span>System Config</span>
+                    <span className="hidden xs:inline sm:inline">Config</span>
                   </button>
                 </>
               )}
@@ -1960,28 +1960,28 @@ export default function Dashboard() {
               {/* Profile Button */}
               <button 
                 onClick={openProfileModal}
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group"
                 title="Profile Settings"
               >
-                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1C6B53] to-emerald-400 flex items-center justify-center overflow-hidden ring-2 ring-[#1C6B53]/20 dark:ring-emerald-400/20 text-white font-black text-xs shadow-sm flex-shrink-0">
+                <div className="w-6 sm:w-7 h-6 sm:h-7 rounded-full bg-gradient-to-tr from-[#1C6B53] to-emerald-400 flex items-center justify-center overflow-hidden ring-2 ring-[#1C6B53]/20 dark:ring-emerald-400/20 text-white font-black text-xs shadow-sm flex-shrink-0">
                   {userProfile?.photo_url ? (
                     <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={13} />
+                    userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={12} />
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="max-w-[120px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
+                  <span className="max-w-[70px] sm:max-w-[120px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
                     {userProfile?.name || (isAdmin ? 'Mohammed Dlshad' : (isManager ? 'Jalal Burghol' : 'Team Lead'))}
                   </span>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${
+                  <span className={`text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${
                     isAdmin 
                       ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700/60' 
                       : isManager 
                       ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700/60'
                       : 'bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-400 border-emerald-300 dark:border-emerald-700/60'
                   }`}>
-                    {isAdmin ? 'Admin' : isManager ? 'Manager' : 'Team Lead'}
+                    {isAdmin ? 'Admin' : isManager ? 'Manager' : 'TL'}
                   </span>
                 </div>
               </button>
@@ -1991,28 +1991,28 @@ export default function Dashboard() {
               {/* Logout Button */}
               <button 
                 onClick={handleLogout} 
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all"
                 title="Logout"
               >
                 <LogOut size={14} />
-                <span>Logout</span>
+                <span className="hidden xs:inline sm:inline">Logout</span>
               </button>
             </div>
           </div>
 
         {/* Team Cards */}
         {activeTeams.length === 1 ? (
-          <div className="mb-8 bg-gradient-to-br from-[#1C6B53] via-[#165a46] to-[#104334] text-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#1C6B53]/15 border border-emerald-500/30 relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/10">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
-                  <Users size={24} className="text-emerald-200" />
+          <div className="mb-6 sm:mb-8 bg-gradient-to-br from-[#1C6B53] via-[#165a46] to-[#104334] text-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-xl shadow-[#1C6B53]/15 border border-emerald-500/30 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-10 sm:w-12 h-10 sm:h-12 rounded-xl sm:rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner shrink-0">
+                  <Users size={20} className="text-emerald-200 sm:w-6 sm:h-6" />
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  <h2 className="text-lg sm:text-2xl font-black tracking-tight text-white">
                     {activeTeams[0]}
                   </h2>
-                  <p className="text-xs text-emerald-100/80 mt-1 font-medium">
+                  <p className="text-[11px] sm:text-xs text-emerald-100/80 mt-0.5 sm:mt-1 font-medium">
                     {selectedYear} Annual Team Performance Summary • {rows.length} Active Agents
                   </p>
                 </div>
@@ -2020,18 +2020,18 @@ export default function Dashboard() {
             </div>
 
             {/* Metrics Grid (Permanent Full Year Data) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
               {(columnsMap[activeTeams[0]] || []).map((col) => {
                 const annualVal = calcYearTeamStat(col);
                 return (
-                  <div key={col.id} className="bg-white/10 dark:bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 flex flex-col justify-between hover:bg-white/15 transition shadow-sm">
-                    <div className="text-[11px] font-bold tracking-wide text-emerald-100/90 truncate mb-2" title={col.label}>
+                  <div key={col.id} className="bg-white/10 dark:bg-black/25 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-white/10 flex flex-col justify-between hover:bg-white/15 transition shadow-sm">
+                    <div className="text-[10px] sm:text-[11px] font-bold tracking-wide text-emerald-100/90 truncate mb-1.5 sm:mb-2" title={col.label}>
                       {toTitleCase(col.label)}
                     </div>
-                    <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    <div className="text-lg sm:text-2xl font-black text-white tracking-tight leading-none">
                       {annualVal}
                     </div>
-                    <div className="text-[10px] text-emerald-300/70 font-medium mt-1">
+                    <div className="text-[9px] sm:text-[10px] text-emerald-300/70 font-medium mt-1">
                       {toTitleCase(col.aggregation)}
                     </div>
                   </div>
@@ -2040,7 +2040,7 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-6 mb-6 sm:mb-8">
             {activeTeams.map((teamName) => {
               const isActive = selectedTeam === teamName;
               const teamCols = columnsMap[teamName] || [];
@@ -2048,14 +2048,14 @@ export default function Dashboard() {
                 <button
                   key={teamName}
                   onClick={() => setSelectedTeam(teamName)}
-                  className={`text-left p-6 rounded-3xl shadow-sm flex flex-col justify-between transition-all border cursor-pointer relative overflow-hidden
+                  className={`text-left p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm flex flex-col justify-between transition-all border cursor-pointer relative overflow-hidden
                     ${isActive 
                       ? 'bg-gradient-to-br from-[#1C6B53] to-[#155a45] text-white border-transparent shadow-lg shadow-[#1C6B53]/20 ring-2 ring-[#1C6B53]/50 scale-[1.01]' 
                       : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-gray-200/80 dark:border-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'}`}
                 >
-                  <div className="flex justify-between items-start w-full mb-4">
+                  <div className="flex justify-between items-start w-full mb-3 sm:mb-4">
                     <div>
-                      <span className={`text-[10px] font-bold tracking-widest block mb-1 ${isActive ? 'text-emerald-200' : 'text-gray-400'}`}>
+                      <span className={`text-[10px] font-bold tracking-widest block mb-0.5 sm:mb-1 ${isActive ? 'text-emerald-200' : 'text-gray-400'}`}>
                         Team Performance
                       </span>
                       <h2 className="text-base sm:text-lg font-bold tracking-tight">
@@ -2067,9 +2067,9 @@ export default function Dashboard() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2 w-full mt-2">
+                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full mt-2">
                     {teamCols.slice(0, 8).map(col => (
-                      <div key={col.id} className={`p-2 rounded-xl text-center border ${isActive ? 'bg-white/10 border-white/10' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700'}`}>
+                      <div key={col.id} className={`p-1.5 sm:p-2 rounded-xl text-center border ${isActive ? 'bg-white/10 border-white/10' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700'}`}>
                         <div className={`text-[9px] font-bold truncate ${isActive ? 'text-emerald-100/80' : 'text-gray-400'}`} title={col.label}>
                           {toTitleCase(col.label)}
                         </div>
@@ -2086,13 +2086,13 @@ export default function Dashboard() {
         )}
 
         {/* Month Tabs & Controls Bar */}
-        <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto shadow-sm mb-5">
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto scrollbar-hide shadow-sm mb-4 sm:mb-5">
           {/* Year selector */}
           <div className="relative flex-shrink-0">
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="appearance-none pl-3.5 pr-8 py-1.5 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0"
+              className="appearance-none pl-3 pr-7 py-1.5 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0"
             >
               <option value="2026">2026</option>
               <option value="2027">2027</option>
@@ -2100,26 +2100,26 @@ export default function Dashboard() {
               <option value="2029">2029</option>
               <option value="2030">2030</option>
             </select>
-            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/80" />
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white/80" />
           </div>
 
           {/* Search Agent Input & Count next to Year */}
           <div className="relative flex-shrink-0">
-            <Search size={13} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Search size={12} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search agent..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/80 dark:bg-gray-900/60 focus:outline-none focus:border-[#1C6B53] dark:focus:border-emerald-500 text-xs w-36 sm:w-44 transition dark:text-gray-200 font-medium"
+              className="pl-7 pr-2.5 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/80 dark:bg-gray-900/60 focus:outline-none focus:border-[#1C6B53] dark:focus:border-emerald-500 text-xs w-28 sm:w-44 transition dark:text-gray-200 font-medium"
             />
           </div>
-          <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap px-1 flex-shrink-0">
+          <span className="text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs font-semibold whitespace-nowrap px-1 flex-shrink-0">
             {filteredRows.length} Agents
           </span>
 
           {/* Separator */}
-          <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0" />
+          <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-0.5 sm:mx-1 flex-shrink-0" />
 
           {/* Months (Jan - Dec) */}
           {months.map(m => {
@@ -2129,7 +2129,7 @@ export default function Dashboard() {
               <button
                 key={m}
                 onClick={() => setSelectedMonth(m)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
                   isSel
                     ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60'
@@ -2141,7 +2141,7 @@ export default function Dashboard() {
           })}
 
           {/* Separator */}
-          <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0" />
+          <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-0.5 sm:mx-1 flex-shrink-0" />
 
           {/* Quarters & Halves */}
           {periods.map(p => {
@@ -2150,7 +2150,7 @@ export default function Dashboard() {
               <button
                 key={p}
                 onClick={() => setSelectedMonth(p)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex-shrink-0 ${
                   isSel
                     ? 'bg-[#00A991] text-white shadow-md shadow-[#00A991]/30'
                     : 'text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
@@ -2162,8 +2162,14 @@ export default function Dashboard() {
           })}
         </div>
 
+        {/* Mobile Swipe Hint */}
+        <div className="flex sm:hidden items-center justify-between text-[11px] text-gray-400 dark:text-gray-500 mb-2 px-1 font-medium">
+          <span>👈 Swipe horizontally to view all KPI columns 👉</span>
+          <span>{activeCols.length} KPIs</span>
+        </div>
+
         {/* Data Table */}
-        <div className="bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto">
+        <div className="bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto scrollbar-hide">
           {errorMsg && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm border-b border-red-100 dark:border-red-800">
               {errorMsg}
@@ -2171,11 +2177,11 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="min-w-[1100px]">
+          <div className="min-w-[950px] sm:min-w-[1100px]">
             {/* Table Header */}
-            <div className="grid gap-2 px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 text-xs font-bold text-gray-600 dark:text-gray-300 border-b border-gray-200/70 dark:border-gray-700"
-                 style={{ gridTemplateColumns: `2.5fr repeat(${activeCols.length}, 1fr)` }}>
-              <div className="pl-1">Agent</div>
+            <div className="grid gap-2 px-3 sm:px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 text-xs font-bold text-gray-600 dark:text-gray-300 border-b border-gray-200/70 dark:border-gray-700"
+                 style={{ gridTemplateColumns: `minmax(150px, 2fr) repeat(${activeCols.length}, 1fr)` }}>
+              <div className="pl-1 sticky left-0 bg-gray-50/95 dark:bg-gray-800/95 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Agent</div>
               {activeCols.map(col => <div key={col.id} className="text-right">{toTitleCase(col.label)}</div>)}
             </div>
 
@@ -2191,18 +2197,18 @@ export default function Dashboard() {
                   const disabled = isAggregate || !!row._readonly;
 
                   return (
-                    <div key={row._memberId || index} className="grid gap-2 px-5 py-2.5 items-center hover:bg-emerald-50/30 dark:hover:bg-gray-800/60 transition group"
-                         style={{ gridTemplateColumns: `2.5fr repeat(${activeCols.length}, 1fr)` }}>
+                    <div key={row._memberId || index} className="grid gap-2 px-3 sm:px-5 py-2 sm:py-2.5 items-center hover:bg-emerald-50/30 dark:hover:bg-gray-800/60 transition group"
+                         style={{ gridTemplateColumns: `minmax(150px, 2fr) repeat(${activeCols.length}, 1fr)` }}>
                       
-                      <div className="pl-1 text-sm font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-3">
+                      <div className="pl-1 text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2 sm:gap-3 sticky left-0 bg-[#FDFCFB] dark:bg-gray-900 group-hover:bg-[#f6fbf9] dark:group-hover:bg-gray-850 z-10 pr-2 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
                         {row.photo_url ? (
-                          <img src={row.photo_url} alt={row.agent_name} className="w-8 h-8 rounded-full object-cover shadow-sm border border-emerald-500/20 flex-shrink-0" />
+                          <img src={row.photo_url} alt={row.agent_name} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shadow-sm border border-emerald-500/20 flex-shrink-0" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#1C6B53]/20 to-emerald-100 dark:from-[#1C6B53]/40 dark:to-emerald-950 text-[#1C6B53] dark:text-emerald-300 font-bold text-xs flex items-center justify-center shadow-sm border border-emerald-500/15 flex-shrink-0">
-                            {row.agent_name ? row.agent_name.charAt(0).toUpperCase() : <Users size={14} />}
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-[#1C6B53]/20 to-emerald-100 dark:from-[#1C6B53]/40 dark:to-emerald-950 text-[#1C6B53] dark:text-emerald-300 font-bold text-xs flex items-center justify-center shadow-sm border border-emerald-500/15 flex-shrink-0">
+                            {row.agent_name ? row.agent_name.charAt(0).toUpperCase() : <Users size={12} />}
                           </div>
                         )}
-                        <span className="font-semibold truncate">{row.display_name || row.agent_name}</span>
+                        <span className="font-semibold truncate max-w-[110px] sm:max-w-none">{row.display_name || row.agent_name}</span>
                       </div>
                       {activeCols.map((col, colIndex) => (
                         <div key={col.id} className="text-right">
@@ -2215,7 +2221,7 @@ export default function Dashboard() {
                             onChange={(e) => handleChange(actualIndex, col.id, e.target.value)}
                             onBlur={() => handleBlur(actualIndex)}
                             onKeyDown={(e) => handleCellKeyDown(e, index, colIndex)}
-                            className="w-20 text-right bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/15 outline-none transition shadow-sm font-medium disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:border-transparent disabled:text-gray-700 dark:disabled:text-gray-300"
+                            className="w-16 sm:w-20 text-right bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/15 outline-none transition shadow-sm font-medium disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:border-transparent disabled:text-gray-700 dark:disabled:text-gray-300"
                           />
                         </div>
                       ))}
@@ -2227,9 +2233,9 @@ export default function Dashboard() {
 
             {/* Team Average Row */}
             {!loading && (
-               <div className="grid gap-2 px-5 py-4 bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200/80 dark:border-gray-700 items-center font-bold"
-                    style={{ gridTemplateColumns: `2.5fr repeat(${activeCols.length}, 1fr)` }}>
-                 <div className="text-xs font-bold text-gray-700 dark:text-gray-300 pl-1">Team Average</div>
+               <div className="grid gap-2 px-3 sm:px-5 py-3.5 sm:py-4 bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200/80 dark:border-gray-700 items-center font-bold"
+                    style={{ gridTemplateColumns: `minmax(150px, 2fr) repeat(${activeCols.length}, 1fr)` }}>
+                 <div className="text-xs font-bold text-gray-700 dark:text-gray-300 pl-1 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Team Average</div>
                  {activeCols.map(col => (
                    <div key={col.id} className="text-right text-xs font-extrabold text-[#1C6B53] dark:text-emerald-400 pr-2">
                      {calcAvg(col, rows)}
@@ -2246,32 +2252,32 @@ export default function Dashboard() {
 
       {/* Manage Settings Modal (System Configuration) */}
       {showManageMembers && isAdmin && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto overscroll-contain">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-4 pt-6 sm:pt-10 overflow-y-auto overscroll-contain">
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowManageMembers(false)} />
-          <div className="relative bg-[#F9F8F4] dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all overscroll-contain max-w-5xl">
+          <div className="relative bg-[#F9F8F4] dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all overscroll-contain max-w-5xl">
             
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start mb-4 sm:mb-6">
               <div>
-                <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                   System Configuration
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
                   Add or remove agents and table columns across the system.
                 </p>
               </div>
               <button onClick={() => setShowManageMembers(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
-                 <X size={24} />
+                 <X size={22} />
               </button>
             </div>
 
-            <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
               
               {/* Agents Card */}
-              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-4 sm:p-6 flex flex-col h-[460px] sm:h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Users size={18} className="text-gray-600 dark:text-gray-300" />
-                    <h3 className="font-bold text-gray-800 dark:text-gray-100">
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm sm:text-base">
                       {userProfile?.role === 'tl' ? `${userProfile?.team?.replace(' Team', '') || 'My Team'} Agents` : 'Agents'}
                     </h3>
                   </div>
@@ -2279,22 +2285,19 @@ export default function Dashboard() {
                     {displayedMembers.length} Agents
                   </span>
                 </div>
-                
-                <input
-                  type="text"
-                  placeholder="Agent Name"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddMember()}
-                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53] font-medium"
-                />
-                
-                {userProfile?.role === 'tl' ? (
-                  <div className="flex items-center gap-2 mb-3 px-3.5 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[#1C6B53] dark:text-emerald-400 rounded-xl text-xs font-bold">
-                    <Briefcase size={14} />
-                    <span>Assigned Team: {userProfile.team}</span>
-                  </div>
-                ) : (
+
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    placeholder="New agent name"
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#1C6B53] font-medium"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddMember()}
+                  />
+                </div>
+
+                {(isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'admin') && (
                   <div className="relative mb-3">
                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                        <Briefcase size={14} className="text-white" />
@@ -2302,7 +2305,7 @@ export default function Dashboard() {
                      <select
                        value={newMemberTeam}
                        onChange={(e) => setNewMemberTeam(e.target.value as TeamName)}
-                       className="w-full pl-9 pr-8 py-2.5 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none"
+                       className="w-full pl-9 pr-8 py-2.5 bg-[#1C6B53] text-white text-xs sm:text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none"
                      >
                        {activeTeams.map(t => <option key={t} value={t} className="bg-white text-gray-800">{t}</option>)}
                      </select>
@@ -2314,7 +2317,7 @@ export default function Dashboard() {
 
                 <button
                   onClick={handleAddMember}
-                  className="w-full bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5 flex items-center justify-center gap-2"
+                  className="w-full bg-[#1C6B53] hover:bg-[#155a45] text-white py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm mb-4 sm:mb-5 flex items-center justify-center gap-2"
                 >
                   <UserPlus size={16}/> Add Agent
                 </button>
@@ -2322,7 +2325,7 @@ export default function Dashboard() {
                 <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
                   {displayedMembers.length === 0 && <div className="text-xs text-gray-400 text-center mt-6">No agents found in this team.</div>}
                   {displayedMembers.map((member) => (
-                    <div key={member.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                    <div key={member.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-2.5 sm:p-3 flex justify-between items-center shadow-sm">
                       
                       {editingMemberId === member.id ? (
                         <div className="flex-1 flex gap-2 items-center">
@@ -2330,13 +2333,13 @@ export default function Dashboard() {
                             type="text" 
                             value={editMemberName} 
                             onChange={(e) => setEditMemberName(e.target.value)} 
-                            className="flex-1 px-2 py-1 text-sm border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            className="flex-1 px-2 py-1 text-xs sm:text-sm border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           />
                           {(isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'admin') && (
                             <select 
                               value={editMemberTeam} 
                               onChange={(e: any) => setEditMemberTeam(e.target.value)} 
-                              className="w-32 px-2 py-1 text-[10px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                              className="w-28 sm:w-32 px-1.5 py-1 text-[10px] border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
                               {activeTeams.map(t => <option key={t} value={t}>{t.replace(' Team', '')}</option>)}
                             </select>
@@ -2347,17 +2350,17 @@ export default function Dashboard() {
                         </div>
                       ) : (
                         <>
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{member.agent_name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider whitespace-nowrap">
+                          <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 truncate max-w-[130px] sm:max-w-none">{member.agent_name}</span>
+                          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md uppercase tracking-wider whitespace-nowrap">
                               {member.team.replace(' Team', '')}
                             </span>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5 sm:gap-2">
                               <button onClick={() => handleEditMemberStart(member)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition" title="Edit">
-                                <Edit2 size={14} />
+                                <Edit2 size={13} />
                               </button>
                               <button onClick={() => setDeleteTarget({ memberId: member.id, name: member.agent_name, team: member.team })} className="text-red-400 hover:text-red-600 transition" title="Delete">
-                                <Trash2 size={14} />
+                                <Trash2 size={13} />
                               </button>
                             </div>
                           </div>
@@ -2369,28 +2372,28 @@ export default function Dashboard() {
               </div>
 
               {/* Columns Card - Admin Only */}
-              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-4 sm:p-6 flex flex-col h-[460px] sm:h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Columns size={18} className="text-gray-600 dark:text-gray-300" />
-                    <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns & KPIs</h3>
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm sm:text-base">Table Columns & KPIs</h3>
                   </div>
                   <div className="relative">
                     <select 
                       value={manageColsTeam} 
                       onChange={(e: any) => setManageColsTeam(e.target.value)}
-                      className="appearance-none pl-3 pr-8 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-800 dark:text-gray-200 outline-none focus:border-[#1C6B53] font-semibold cursor-pointer shadow-xs"
+                      className="appearance-none pl-2.5 pr-7 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-800 dark:text-gray-200 outline-none focus:border-[#1C6B53] font-semibold cursor-pointer shadow-xs"
                     >
                       <option value="ALL">🌐 All Teams</option>
                       {activeTeams.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
                   </div>
                 </div>
 
                 {manageColsTeam === 'ALL' && (
-                  <div className="mb-3 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl text-[11px] text-[#1C6B53] dark:text-emerald-300 font-semibold flex items-center gap-1.5">
-                    <span>✓ Syncs Across All Team Leaders & Agent Dashboards Automatically</span>
+                  <div className="mb-3 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl text-[10px] sm:text-[11px] text-[#1C6B53] dark:text-emerald-300 font-semibold flex items-center gap-1.5">
+                    <span>✓ Syncs Across All Team Leaders & Agent Dashboards</span>
                   </div>
                 )}
                 
@@ -2399,89 +2402,86 @@ export default function Dashboard() {
                   placeholder="KPI Name (e.g. Quality, Exam, Prod)"
                   value={newColLabel}
                   onChange={(e) => setNewColLabel(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53] font-medium"
+                  className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:border-[#1C6B53] mb-2 font-medium"
                 />
 
-                <div className="flex gap-3 mb-3">
-                  <div className="flex-1 flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
-                    <div className="relative">
-                      <select value={newColType} onChange={(e: any) => setNewColType(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
-                        <option value="number" className="bg-white text-gray-800">Number</option>
-                        <option value="time" className="bg-white text-gray-800">Time (mm:ss)</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                        <ChevronDown size={14} className="text-white" />
-                      </div>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] sm:text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Format</label>
+                    <div className="flex rounded-xl overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setNewColType('number')}
+                        className={`flex-1 py-1 text-[11px] sm:text-xs font-bold rounded-lg transition ${newColType === 'number' ? 'bg-[#1C6B53] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                      >
+                        Number / %
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewColType('time')}
+                        className={`flex-1 py-1 text-[11px] sm:text-xs font-bold rounded-lg transition ${newColType === 'time' ? 'bg-[#1C6B53] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                      >
+                        Time (m:ss)
+                      </button>
                     </div>
                   </div>
-                  <div className="flex-1 flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
-                    <div className="relative">
-                      <select value={newColAgg} onChange={(e: any) => setNewColAgg(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
-                        <option value="average" className="bg-white text-gray-800">Average</option>
-                        <option value="sum" className="bg-white text-gray-800">Sum</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                        <ChevronDown size={14} className="text-white" />
-                      </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] sm:text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aggregation</label>
+                    <div className="flex rounded-xl overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setNewColAgg('average')}
+                        className={`flex-1 py-1 text-[11px] sm:text-xs font-bold rounded-lg transition ${newColAgg === 'average' ? 'bg-[#1C6B53] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                      >
+                        Average
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewColAgg('sum')}
+                        className={`flex-1 py-1 text-[11px] sm:text-xs font-bold rounded-lg transition ${newColAgg === 'sum' ? 'bg-[#1C6B53] text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                      >
+                        Sum
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 <button
                   onClick={handleAddColumn}
-                  className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5"
+                  className="w-full bg-[#1C6B53] hover:bg-[#155a45] text-white py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-sm mb-4 sm:mb-5 flex items-center justify-center gap-2"
                 >
-                  <Plus size={16} /> Add KPI Column
+                  <Plus size={16} /> Add KPI
                 </button>
 
                 <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
-                  {manageCols.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No columns configured.</div>}
                   {manageCols.map((col) => (
-                    <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
-                      
+                    <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-2.5 sm:p-3 flex justify-between items-center shadow-sm">
                       {editingColId === col.id ? (
                         <div className="flex-1 flex gap-2 items-center">
-                          <input 
-                            type="text" 
-                            value={editColLabel} 
-                            onChange={(e) => setEditColLabel(e.target.value)} 
-                            className="flex-1 px-2.5 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          <input
+                            type="text"
+                            value={editColLabel}
+                            onChange={(e) => setEditColLabel(e.target.value)}
+                            className="flex-1 px-2 py-1 text-xs sm:text-sm border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           />
-                          <select 
-                            value={editColType} 
-                            onChange={(e: any) => setEditColType(e.target.value)} 
-                            className="px-2 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer"
-                          >
-                            <option value="number">Number</option>
-                            <option value="time">Time</option>
-                          </select>
-                          <select 
-                            value={editColAgg} 
-                            onChange={(e: any) => setEditColAgg(e.target.value)} 
-                            className="px-2 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer"
-                          >
-                            <option value="average">Average</option>
-                            <option value="sum">Sum</option>
-                          </select>
-                          <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700 p-1 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
-                            <Save size={14}/>
+                          <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700 p-1">
+                            <Save size={14} />
                           </button>
                         </div>
                       ) : (
                         <>
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{toTitleCase(col.label)}</span>
-                          <div className="flex items-center gap-2.5">
-                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                          <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200">{toTitleCase(col.label)}</span>
+                          <div className="flex items-center gap-2 sm:gap-2.5">
+                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md">
                               {toTitleCase(col.type)} • {toTitleCase(col.aggregation)}
                             </span>
-                            <div className="flex gap-1.5">
+                            <div className="flex gap-1 sm:gap-1.5">
                               <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title="Edit KPI">
-                                <Edit2 size={14} />
+                                <Edit2 size={13} />
                               </button>
                               <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 p-1" title="Delete KPI">
-                                <Trash2 size={14} />
+                                <Trash2 size={13} />
                               </button>
                             </div>
                           </div>
@@ -2499,9 +2499,9 @@ export default function Dashboard() {
 
       {/* TL & Manager Profile Modal */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)} />
-          <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 max-w-md w-full border border-gray-100 dark:border-gray-800">
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-7 max-w-md w-full border border-gray-100 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Profile Settings</h3>
