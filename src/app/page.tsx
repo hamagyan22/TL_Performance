@@ -27,15 +27,29 @@ const DEFAULT_CHAT_COLUMNS: ColumnConfig[] = [
 ];
 
 const DEFAULT_OTHER_COLUMNS: ColumnConfig[] = [
-  { id: 'quality', label: 'QUALITY %', type: 'number', aggregation: 'average' },
-  { id: 'aht', label: 'AHT S', type: 'time', aggregation: 'average' },
-  { id: 'productivity', label: 'PROD %', type: 'number', aggregation: 'average' },
-  { id: 'wrapup', label: 'WRAPUP', type: 'time', aggregation: 'sum' },
-  { id: 'hold', label: 'HOLD S', type: 'time', aggregation: 'average' },
-  { id: 'abandoned', label: 'ABANDONED', type: 'number', aggregation: 'sum' },
-  { id: 'handled', label: 'HANDLED', type: 'number', aggregation: 'sum' },
-  { id: 'exam', label: 'EXAM %', type: 'number', aggregation: 'average' },
+  { id: 'quality', label: 'Quality %', type: 'number', aggregation: 'average' },
+  { id: 'exam', label: 'Exam %', type: 'number', aggregation: 'average' },
+  { id: 'productivity', label: 'Prod %', type: 'number', aggregation: 'average' },
+  { id: 'aht', label: 'Aht S', type: 'time', aggregation: 'average' },
+  { id: 'hold', label: 'Hold S', type: 'time', aggregation: 'average' },
+  { id: 'wrapup', label: 'Wrapup', type: 'time', aggregation: 'sum' },
+  { id: 'handled', label: 'Handled', type: 'number', aggregation: 'sum' },
+  { id: 'abandoned', label: 'Abandoned', type: 'number', aggregation: 'sum' },
 ];
+
+const DESIRED_COLUMN_ORDER = ['quality', 'exam', 'productivity', 'aht', 'hold', 'wrapup', 'handled', 'abandoned'];
+
+function sortColumnsByOrder(cols: ColumnConfig[]) {
+  if (!cols) return [];
+  return [...cols].sort((a, b) => {
+    const idxA = DESIRED_COLUMN_ORDER.indexOf(a.id);
+    const idxB = DESIRED_COLUMN_ORDER.indexOf(b.id);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return 0;
+  });
+}
 
 
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -521,11 +535,20 @@ export default function Dashboard() {
   const [editColType, setEditColType] = useState<'number'|'time'>('number');
   const [editColAgg, setEditColAgg] = useState<'sum'|'average'>('average');
 
+  const [yearMetrics, setYearMetrics] = useState<any[]>([]);
+
   const months = [
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
   ];
+  const periods = ["Q1", "Q2", "Q3", "Q4", "H1", "H2"];
 
   const aggregateMap: Record<string, string[]> = {
+    "Q1": ["JAN", "FEB", "MAR"],
+    "Q2": ["APR", "MAY", "JUN"],
+    "Q3": ["JUL", "AUG", "SEP"],
+    "Q4": ["OCT", "NOV", "DEC"],
+    "H1": ["JAN", "FEB", "MAR", "APR", "MAY", "JUN"],
+    "H2": ["JUL", "AUG", "SEP", "OCT", "NOV", "DEC"],
     "Q1 - AVG": ["JAN", "FEB", "MAR"],
     "Q2 - AVG": ["APR", "MAY", "JUN"],
     "Q3 - AVG": ["JUL", "AUG", "SEP"],
@@ -550,17 +573,38 @@ export default function Dashboard() {
         map[d.id] = d.data().columns;
       });
       
-      let updated = false;
       for (const t of TEAMS) {
         if (!map[t] || map[t].length === 0) {
           map[t] = t === 'Mohammed Dlshad Team' ? DEFAULT_CHAT_COLUMNS : DEFAULT_OTHER_COLUMNS;
           await setDoc(doc(db, 'columns_config', t), { columns: map[t] });
-          updated = true;
+        } else if (t !== 'Mohammed Dlshad Team') {
+          map[t] = sortColumnsByOrder(map[t]);
+          await updateDoc(doc(db, 'columns_config', t), { columns: map[t] });
         }
       }
       setColumnsMap(map);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const calcYearTeamStat = (col: ColumnConfig) => {
+    const validMetrics = yearMetrics.filter(r => r[col.id] && r[col.id].toString().trim() !== "");
+    if (validMetrics.length === 0) return "-";
+
+    if (col.type === 'time') {
+      let totalSeconds = 0;
+      validMetrics.forEach(r => {
+        const parts = r[col.id].toString().split(':');
+        if (parts.length === 2) totalSeconds += (parseInt(parts[0]) * 60) + parseInt(parts[1]);
+        else totalSeconds += parseInt(parts[0]) || 0;
+      });
+      const resultSecs = col.aggregation === 'sum' ? totalSeconds : Math.round(totalSeconds / validMetrics.length);
+      return `${Math.floor(resultSecs / 60)}:${(resultSecs % 60).toString().padStart(2, '0')}`;
+    } else {
+      const sum = validMetrics.reduce((acc, r) => acc + parseFloat(r[col.id] || 0), 0);
+      const result = col.aggregation === 'sum' ? sum : sum / validMetrics.length;
+      return Number.isInteger(result) ? result.toString() : result.toFixed(1);
     }
   };
 
@@ -658,10 +702,12 @@ export default function Dashboard() {
       roster.sort((a, b) => (a.agent_name > b.agent_name ? 1 : -1));
 
       const metricsSnap = await getDocs(query(collection(db, tableName), where('team', '==', selectedTeam), where('year', '==', selectedYear)));
-      let metrics = metricsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      const allYearData = metricsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      setYearMetrics(allYearData);
       
+      let metrics = [...allYearData];
       if (isAggregate) {
-        metrics = metrics.filter(m => aggregateMap[selectedMonth].includes(m.month));
+        metrics = metrics.filter(m => aggregateMap[selectedMonth]?.includes(m.month));
       } else {
         metrics = metrics.filter(m => m.month === selectedMonth);
       }
@@ -677,7 +723,13 @@ export default function Dashboard() {
 
         const aggregatedRows = roster.map(member => {
           const agentRows = agentGroups[member.agent_name] || [];
-          const avgRow: any = { _memberId: member.id, agent_name: member.agent_name, _readonly: true };
+          const avgRow: any = { 
+            _memberId: member.id, 
+            agent_name: member.agent_name, 
+            photo_url: member.photo_url || "", 
+            display_name: member.display_name || member.agent_name, 
+            _readonly: true 
+          };
 
           teamCols.forEach(col => {
             const vals = agentRows.filter(r => r[col.id] && r[col.id].toString().trim() !== "");
@@ -700,8 +752,20 @@ export default function Dashboard() {
 
         const mergedRows = roster.map(member => {
           const existing = metricsByAgent[member.agent_name];
-          if (existing) return { ...existing, _memberId: member.id };
-          const empty: any = { _memberId: member.id, agent_name: member.agent_name };
+          if (existing) {
+            return { 
+              ...existing, 
+              _memberId: member.id, 
+              photo_url: member.photo_url || "", 
+              display_name: member.display_name || member.agent_name 
+            };
+          }
+          const empty: any = { 
+            _memberId: member.id, 
+            agent_name: member.agent_name, 
+            photo_url: member.photo_url || "", 
+            display_name: member.display_name || member.agent_name 
+          };
           teamCols.forEach(col => empty[col.id] = "");
           return empty;
         });
@@ -962,20 +1026,15 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/60 dark:border-gray-800">
           <div className="flex items-center gap-3.5 sm:gap-5">
             <div className="flex items-center gap-2">
-              <img src="/logo.webp" alt="FIB Logo" className="h-8 sm:h-9 object-contain" />
+              <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain" />
             </div>
-            <div className="h-8 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
+            <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
             <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                  Team Leader Dashboard
-                </h1>
-                <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-[#1C6B53]/10 text-[#1C6B53] dark:bg-emerald-500/20 dark:text-emerald-400 border border-[#1C6B53]/20">
-                  {userProfile?.role === 'manager' ? 'Executive Manager' : (userProfile?.team?.replace(' Team', '') || 'Team Lead')}
-                </span>
-              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                Team Leader Dashboard
+              </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                Shift & Team Management
+                Performance & Quality Analytics
               </p>
             </div>
           </div>
@@ -1019,7 +1078,7 @@ export default function Dashboard() {
 
         {/* Team Cards */}
         {activeTeams.length === 1 ? (
-          <div className="mb-8 bg-gradient-to-br from-[#1C6B53] via-[#165a46] to-[#104334] text-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#1C6B53]/15 border border-emerald-600/30 relative overflow-hidden">
+          <div className="mb-8 bg-gradient-to-br from-[#1C6B53] via-[#165a46] to-[#104334] text-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-[#1C6B53]/15 border border-emerald-500/30 relative overflow-hidden">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/10">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
@@ -1030,23 +1089,23 @@ export default function Dashboard() {
                     {activeTeams[0]}
                   </h2>
                   <p className="text-xs text-emerald-100/80 mt-1 font-medium">
-                    {selectedMonth.charAt(0) + selectedMonth.slice(1).toLowerCase()} {selectedYear} Performance Summary • {rows.length} Active Agents
+                    {selectedYear} Annual Team Performance Summary • {rows.length} Active Agents
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Metrics Grid */}
+            {/* Metrics Grid (Permanent Full Year Data) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
               {(columnsMap[activeTeams[0]] || []).map((col) => {
-                const avgVal = calcAvg(col, rows);
+                const annualVal = calcYearTeamStat(col);
                 return (
                   <div key={col.id} className="bg-white/10 dark:bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 flex flex-col justify-between hover:bg-white/15 transition shadow-sm">
                     <div className="text-[11px] font-bold tracking-wide text-emerald-100/90 truncate mb-2" title={col.label}>
                       {toTitleCase(col.label)}
                     </div>
                     <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                      {avgVal}
+                      {annualVal}
                     </div>
                     <div className="text-[10px] text-emerald-300/70 font-medium mt-1">
                       {toTitleCase(col.aggregation)}
@@ -1091,7 +1150,7 @@ export default function Dashboard() {
                           {toTitleCase(col.label)}
                         </div>
                         <div className="font-extrabold text-xs sm:text-sm mt-0.5">
-                          {isActive ? calcAvg(col, rows) : '-'}
+                          {isActive ? calcYearTeamStat(col) : '-'}
                         </div>
                       </div>
                     ))}
@@ -1129,7 +1188,7 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Bottom Row: Month Tabs (Modern Pill Carousel) */}
+          {/* Bottom Row: Month Tabs (Modern Pill Bar with Q1-Q4, H1, H2) */}
           <div className="flex items-center gap-1.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto shadow-sm">
             <select
               value={selectedYear}
@@ -1142,14 +1201,17 @@ export default function Dashboard() {
               <option value="2029">2029</option>
               <option value="2030">2030</option>
             </select>
+
+            {/* Months (Jan - Dec) */}
             {months.map(m => {
               const displayLabel = m.charAt(0) + m.slice(1).toLowerCase();
+              const isSel = selectedMonth === m;
               return (
                 <button
                   key={m}
                   onClick={() => setSelectedMonth(m)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
-                    selectedMonth === m
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
+                    isSel
                       ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60'
                   }`}
@@ -1158,11 +1220,32 @@ export default function Dashboard() {
                 </button>
               );
             })}
+
+            {/* Separator */}
+            <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0" />
+
+            {/* Quarters & Halves */}
+            {periods.map(p => {
+              const isSel = selectedMonth === p;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setSelectedMonth(p)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex-shrink-0 ${
+                    isSel
+                      ? 'bg-[#00A991] text-white shadow-md shadow-[#00A991]/30'
+                      : 'text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Data Table */}
-        <div className="bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm overflow-x-auto">
+        <div className="bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto">
           {errorMsg && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm border-b border-red-100 dark:border-red-800">
               {errorMsg}
@@ -1172,9 +1255,9 @@ export default function Dashboard() {
 
           <div className="min-w-[1100px]">
             {/* Table Header */}
-            <div className="grid gap-2 px-4 py-3 bg-[#F4F2EC] dark:bg-gray-800 text-xs font-bold text-gray-600 dark:text-gray-400 border-b border-gray-200/60 dark:border-gray-700"
-                 style={{ gridTemplateColumns: `2fr repeat(${activeCols.length}, 1fr)` }}>
-              <div className="pl-2">Agent</div>
+            <div className="grid gap-2 px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 text-xs font-bold text-gray-600 dark:text-gray-300 border-b border-gray-200/70 dark:border-gray-700"
+                 style={{ gridTemplateColumns: `2.5fr repeat(${activeCols.length}, 1fr)` }}>
+              <div className="pl-1">Agent</div>
               {activeCols.map(col => <div key={col.id} className="text-right">{toTitleCase(col.label)}</div>)}
             </div>
 
@@ -1183,24 +1266,25 @@ export default function Dashboard() {
               {loading ? (
                 <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">Loading data...</div>
               ) : filteredRows.length === 0 ? (
-                <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">No team members found. Click "System Config" to add members.</div>
+                <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">No team members found. Click "Manage Agents" to add members.</div>
               ) : (
                 filteredRows.map((row, index) => {
                   const actualIndex = rows.findIndex(r => r === row);
                   const disabled = isAggregate || !!row._readonly;
-                  const inputCls = `w-20 text-right bg-transparent border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-600 dark:text-gray-300 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-800 outline-none transition ${disabled ? 'bg-gray-50 dark:bg-gray-800 border-transparent !text-gray-800 dark:!text-gray-200 font-medium' : ''}`;
 
                   return (
-                    <div key={row._memberId || index} className="grid gap-2 px-4 py-1.5 items-center hover:bg-white dark:hover:bg-gray-800 transition"
-                         style={{ gridTemplateColumns: `2fr repeat(${activeCols.length}, 1fr)` }}>
+                    <div key={row._memberId || index} className="grid gap-2 px-5 py-2.5 items-center hover:bg-emerald-50/30 dark:hover:bg-gray-800/60 transition group"
+                         style={{ gridTemplateColumns: `2.5fr repeat(${activeCols.length}, 1fr)` }}>
                       
-                      <div className="pl-2 text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <div className="pl-1 text-sm font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-3">
                         {row.photo_url ? (
-                          <img src={row.photo_url} className="w-6 h-6 rounded-full object-cover shadow-sm" />
+                          <img src={row.photo_url} alt={row.agent_name} className="w-8 h-8 rounded-full object-cover shadow-sm border border-emerald-500/20 flex-shrink-0" />
                         ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center"><Users size={12} className="text-gray-400" /></div>
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#1C6B53]/20 to-emerald-100 dark:from-[#1C6B53]/40 dark:to-emerald-950 text-[#1C6B53] dark:text-emerald-300 font-bold text-xs flex items-center justify-center shadow-sm border border-emerald-500/15 flex-shrink-0">
+                            {row.agent_name ? row.agent_name.charAt(0).toUpperCase() : <Users size={14} />}
+                          </div>
                         )}
-                        {row.display_name || row.agent_name}
+                        <span className="font-semibold truncate">{row.display_name || row.agent_name}</span>
                       </div>
                       {activeCols.map(col => (
                         <div key={col.id} className="text-right">
@@ -1211,7 +1295,7 @@ export default function Dashboard() {
                             value={row[col.id] || ''}
                             onChange={(e) => handleChange(actualIndex, col.id, e.target.value)}
                             onBlur={() => handleBlur(actualIndex)}
-                            className={inputCls}
+                            className="w-20 text-right bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/15 outline-none transition shadow-sm font-medium disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:border-transparent disabled:text-gray-700 dark:disabled:text-gray-300"
                           />
                         </div>
                       ))}
@@ -1223,11 +1307,11 @@ export default function Dashboard() {
 
             {/* Team Average Row */}
             {!loading && (
-               <div className="grid gap-2 px-4 py-4 bg-[#F4F2EC] dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 items-center"
-                    style={{ gridTemplateColumns: `2fr repeat(${activeCols.length}, 1fr)` }}>
-                 <div className="text-xs font-bold text-gray-600 dark:text-gray-400 pl-2">Team Average</div>
+               <div className="grid gap-2 px-5 py-4 bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200/80 dark:border-gray-700 items-center font-bold"
+                    style={{ gridTemplateColumns: `2.5fr repeat(${activeCols.length}, 1fr)` }}>
+                 <div className="text-xs font-bold text-gray-700 dark:text-gray-300 pl-1">Team Average</div>
                  {activeCols.map(col => (
-                   <div key={col.id} className="text-right text-xs font-semibold text-gray-700 dark:text-gray-300 pr-4">
+                   <div key={col.id} className="text-right text-xs font-extrabold text-[#1C6B53] dark:text-emerald-400 pr-2">
                      {calcAvg(col, rows)}
                    </div>
                  ))}
