@@ -187,7 +187,7 @@ function AgentDashboard({
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
   const [forcePasswordChange, setForcePasswordChange] = useState(
-    previewMode ? false : (userProfile?.mustChangePassword === true || userProfile?.mustChangePassword === undefined)
+    previewMode ? false : (userProfile?.passwordUpdated !== true || userProfile?.mustChangePassword === true)
   );
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -215,9 +215,14 @@ function AgentDashboard({
     try {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword);
-        await setDoc(doc(db, 'users', auth.currentUser.uid), { mustChangePassword: false }, { merge: true });
+        await setDoc(doc(db, 'users', auth.currentUser.uid), { 
+          mustChangePassword: false, 
+          passwordUpdated: true,
+          passwordChangedAt: new Date().toISOString() 
+        }, { merge: true });
         if (userProfile) {
           userProfile.mustChangePassword = false;
+          userProfile.passwordUpdated = true;
         }
         setForcePasswordChange(false);
       }
@@ -898,6 +903,12 @@ export default function Dashboard() {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockoutTimer, setLockoutTimer] = useState(0);
 
+  // Mandatory first-login password change for TL/Manager users
+  const [tlNewPassword, setTlNewPassword] = useState('');
+  const [tlConfirmPassword, setTlConfirmPassword] = useState('');
+  const [tlPasswordError, setTlPasswordError] = useState('');
+  const [tlPasswordLoading, setTlPasswordLoading] = useState(false);
+
   useEffect(() => {
     if (lockoutTimer <= 0) return;
     const interval = setInterval(() => {
@@ -935,6 +946,44 @@ export default function Dashboard() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState("");
   const [forgotError, setForgotError] = useState("");
+
+  const handleTLPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTlPasswordError('');
+    if (tlNewPassword !== tlConfirmPassword) {
+      setTlPasswordError('Passwords do not match');
+      return;
+    }
+    const check = validatePasswordSecurity(tlNewPassword);
+    if (!check.isValid) {
+      setTlPasswordError(check.error);
+      return;
+    }
+    setTlPasswordLoading(true);
+    try {
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, tlNewPassword);
+        await setDoc(doc(db, 'users', auth.currentUser.uid), {
+          mustChangePassword: false,
+          passwordUpdated: true,
+          passwordChangedAt: new Date().toISOString(),
+        }, { merge: true });
+        setUserProfile((prev: any) => ({
+          ...prev,
+          mustChangePassword: false,
+          passwordUpdated: true,
+        }));
+      }
+    } catch (err: any) {
+      if (err.code === 'auth/requires-recent-login') {
+        setTlPasswordError('Security session expired. Please log out and sign back in to change your password.');
+      } else {
+        setTlPasswordError(err.message || 'Failed to update password');
+      }
+    } finally {
+      setTlPasswordLoading(false);
+    }
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1012,6 +1061,8 @@ export default function Dashboard() {
         };
         if (newProfilePassword) {
           payload.mustChangePassword = false;
+          payload.passwordUpdated = true;
+          payload.passwordChangedAt = new Date().toISOString();
         }
         await setDoc(doc(db, 'users', session.uid), payload, { merge: true });
         setUserProfile((prev: any) => ({
@@ -1172,7 +1223,7 @@ export default function Dashboard() {
         const isAnkido = emailLower === 'ankido.buya@agent.com';
         const isAgent = emailLower.endsWith('@agent.com');
 
-        // Instant optimistic role identification
+        // Instant optimistic role identification: Mohammed Dlshad (The Admin) is EXEMPT
         if (isMohammed) {
           const adminProfile: any = {
             role: 'admin',
@@ -1181,6 +1232,7 @@ export default function Dashboard() {
             name: 'Mohammed Dlshad',
             email: user.email,
             mustChangePassword: false,
+            passwordUpdated: true,
           };
           setUserProfile(adminProfile);
           setSelectedTeam('Mohammed Dlshad Team');
@@ -1189,64 +1241,77 @@ export default function Dashboard() {
           return;
         }
 
-        if (isJalal) {
-          const jalalProfile: any = {
-            role: 'manager',
-            isAdmin: false,
-            team: 'All',
-            name: 'Jalal Burghol',
-            email: user.email,
-            mustChangePassword: false,
-          };
-          setUserProfile(jalalProfile);
-          setAuthLoading(false);
-          setDoc(doc(db, 'users', user.uid), jalalProfile, { merge: true }).catch(console.error);
-          return;
-        }
-
-        if (isYounis) {
-          const tlProfile: any = {
-            role: 'tl',
-            team: 'Younis Kamal Team',
-            name: 'Younis Kamal',
-            email: user.email,
-          };
-          setUserProfile(tlProfile);
-          setSelectedTeam('Younis Kamal Team');
-          setAuthLoading(false);
-          setDoc(doc(db, 'users', user.uid), tlProfile, { merge: true }).catch(console.error);
-          return;
-        }
-
-        if (isAnkido) {
-          const tlProfile: any = {
-            role: 'tl',
-            team: 'Ankido Buya Team',
-            name: 'Ankido Buya',
-            email: user.email,
-          };
-          setUserProfile(tlProfile);
-          setSelectedTeam('Ankido Buya Team');
-          setAuthLoading(false);
-          setDoc(doc(db, 'users', user.uid), tlProfile, { merge: true }).catch(console.error);
-          return;
-        }
-
-        // Direct fetch for other users / agents
+        // For ALL other users (Manager Jalal Burghol, Team Leaders Younis & Ankido, Agents):
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setUserProfile(data);
-            if (data.role === 'tl' && data.team) {
-              setSelectedTeam(data.team as TeamName);
-            }
-          } else {
-            setUserProfile({ role: isAgent ? 'agent' : 'tl' });
+          const existingData = userDoc.exists() ? userDoc.data() : {};
+
+          let role = existingData.role;
+          let name = existingData.name;
+          let team = existingData.team;
+
+          if (isJalal) {
+            role = 'manager';
+            name = name || 'Jalal Burghol';
+            team = 'All';
+          } else if (isYounis) {
+            role = 'tl';
+            name = name || 'Younis Kamal';
+            team = 'Younis Kamal Team';
+            setSelectedTeam('Younis Kamal Team');
+          } else if (isAnkido) {
+            role = 'tl';
+            name = name || 'Ankido Buya';
+            team = 'Ankido Buya Team';
+            setSelectedTeam('Ankido Buya Team');
+          } else if (!role) {
+            role = isAgent ? 'agent' : 'tl';
           }
-        } catch(e) {
-          console.error(e);
-          setUserProfile({ role: isAgent ? 'agent' : 'tl' });
+
+          if (role === 'tl' && team) {
+            setSelectedTeam(team as TeamName);
+          }
+
+          // Mandatory password change for everyone except Mohammed:
+          // User must have explicitly completed the password change process (passwordUpdated === true)
+          const hasUpdatedPassword = existingData.passwordUpdated === true;
+
+          const updatedProfile = {
+            ...existingData,
+            role,
+            name: name || user.displayName || user.email?.split('@')[0],
+            team: team || (isJalal ? 'All' : undefined),
+            email: user.email,
+            isAdmin: false,
+            passwordUpdated: hasUpdatedPassword,
+            mustChangePassword: !hasUpdatedPassword,
+          };
+
+          setUserProfile(updatedProfile);
+
+          // Update Firestore
+          setDoc(doc(db, 'users', user.uid), {
+            role,
+            name: updatedProfile.name,
+            team: updatedProfile.team || null,
+            email: user.email,
+            isAdmin: false,
+            passwordUpdated: hasUpdatedPassword,
+            mustChangePassword: !hasUpdatedPassword,
+          }, { merge: true }).catch(console.error);
+
+        } catch (e) {
+          console.error("Error fetching user profile:", e);
+          const fallbackRole = isJalal ? 'manager' : (isYounis || isAnkido ? 'tl' : (isAgent ? 'agent' : 'tl'));
+          setUserProfile({
+            role: fallbackRole,
+            name: isJalal ? 'Jalal Burghol' : (isYounis ? 'Younis Kamal' : (isAnkido ? 'Ankido Buya' : user.email?.split('@')[0])),
+            team: isYounis ? 'Younis Kamal Team' : (isAnkido ? 'Ankido Buya Team' : (isJalal ? 'All' : undefined)),
+            email: user.email,
+            isAdmin: false,
+            passwordUpdated: false,
+            mustChangePassword: true,
+          });
         }
         setAuthLoading(false);
       } else {
@@ -1617,6 +1682,103 @@ export default function Dashboard() {
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center transition-colors dark:bg-gray-900"><div className="text-gray-500 dark:text-gray-400 font-medium">Loading...</div></div>;
+  }
+
+  // Mandatory password change screen for TL / Manager / Agent who haven't set their personal password yet
+  // Mohammed Dlshad (Admin) is EXEMPT — passwordUpdated is always true for him
+  if (session && userProfile && userProfile.passwordUpdated !== true && !isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 transition-colors bg-[#F4F7F5] dark:bg-[#07130F] relative overflow-hidden font-sans">
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-400/20 dark:bg-emerald-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#1C6B53]/25 dark:bg-[#1C6B53]/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-[440px] bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 p-7 sm:p-9 relative z-10">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-[#1C6B53]/10 dark:bg-emerald-950 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 mb-4 shadow-inner">
+              <ShieldCheck size={32} />
+            </div>
+            <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+              Security: Set Your Password
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed max-w-xs">
+              Welcome, <strong className="text-gray-800 dark:text-gray-200">{userProfile?.name || userProfile?.email}</strong>! For your account security, you must set a personal password before accessing the dashboard.
+            </p>
+          </div>
+
+          {tlPasswordError && (
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-xl">
+              {tlPasswordError}
+            </div>
+          )}
+
+          <form onSubmit={handleTLPasswordChange} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                New Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="Min. 8 characters with uppercase & number"
+                value={tlNewPassword}
+                onChange={(e) => setTlNewPassword(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="Re-enter new password"
+                value={tlConfirmPassword}
+                onChange={(e) => setTlConfirmPassword(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
+              />
+            </div>
+
+            {/* Password Requirements Checklist */}
+            <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+              <p className="font-bold text-gray-700 dark:text-gray-300 mb-1">Security Requirements:</p>
+              <div className="flex items-center gap-1.5">
+                <span className={tlNewPassword.length >= 8 ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                <span>Minimum 8 characters</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={/[A-Z]/.test(tlNewPassword) && /[a-z]/.test(tlNewPassword) ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                <span>Uppercase & lowercase letters</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={/[0-9]/.test(tlNewPassword) || /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(tlNewPassword) ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                <span>At least one number or special character</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={tlPasswordLoading}
+              className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/25 transition-all active:scale-[0.99] disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              <ShieldCheck size={16} />
+              {tlPasswordLoading ? 'Saving...' : 'Set Password & Access Dashboard'}
+            </button>
+
+            <div className="pt-1 text-center">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-xs text-gray-400 hover:text-red-500 font-semibold transition"
+              >
+                Cancel and Sign Out
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
   }
 
     if (!session) {
