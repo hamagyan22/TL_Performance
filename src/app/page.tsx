@@ -409,74 +409,29 @@ function AgentDashboard({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs">
-            {/* Dark Mode Toggle */}
-            {toggleDarkMode && (
-              <button 
-                onClick={toggleDarkMode} 
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
-                title="Toggle Dark Mode"
-              >
-                {isDarkMode ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} />}
-              </button>
-            )}
-
-            {!previewMode && (
-              <>
-                {toggleDarkMode && <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />}
-                <button 
-                  onClick={onLogout} 
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-gray-600 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition"
-                >
-                  <LogOut size={14} /> <span>Logout</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Executive Preview Toolbar (When Manager/Admin is inspecting an agent) */}
-        {previewMode && (
-          <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-[#0C3227] via-[#124235] to-[#0C3227] text-white rounded-3xl shadow-xl border border-emerald-500/25 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-30">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-emerald-300 border border-emerald-400/20 shadow-inner">
-                <Eye size={20} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black tracking-widest uppercase text-emerald-300">Executive Agent View</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">Live Preview</span>
-                </div>
-                <p className="text-xs text-emerald-100/75 font-medium mt-0.5">Switch between team members to inspect their scorecards & KPIs</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              {/* Custom Modern Agent Dropdown */}
-              <div className="relative flex-1 md:w-80">
+          <div className="flex items-center gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs flex-wrap">
+            {/* Agent Selector Dropdown in Preview Mode */}
+            {previewMode && (
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
-                  className="w-full flex items-center justify-between gap-2.5 px-4 py-2.5 bg-white/10 hover:bg-white/15 dark:bg-gray-800/90 border border-white/20 dark:border-gray-700 rounded-2xl text-xs font-bold text-white shadow-md backdrop-blur-md transition-all cursor-pointer text-left"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/60 dark:hover:bg-gray-700 border border-gray-200/80 dark:border-gray-600/80 rounded-xl text-xs font-bold text-gray-800 dark:text-gray-200 transition shadow-xs cursor-pointer"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-emerald-400/20 border border-emerald-300/30 flex items-center justify-center text-emerald-300 text-[10px] font-black shrink-0">
-                      {currentAgent?.agent_name ? currentAgent.agent_name.charAt(0).toUpperCase() : <Users size={12} />}
-                    </div>
-                    <span className="truncate">{currentAgent?.agent_name || "Select Agent"}</span>
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-[#1C6B53] dark:text-emerald-300 flex items-center justify-center text-[10px] font-black shrink-0">
+                    {currentAgent?.agent_name ? currentAgent.agent_name.charAt(0).toUpperCase() : <Users size={11} />}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/15 text-emerald-100">
-                      {currentAgent?.team?.replace(' Team', '') || ''}
-                    </span>
-                    <ChevronDown size={14} className={`text-emerald-200 transition-transform duration-200 ${agentDropdownOpen ? 'rotate-180' : ''}`} />
-                  </div>
+                  <span className="truncate max-w-[120px] sm:max-w-[160px]">{currentAgent?.agent_name || "Select Agent"}</span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200/70 dark:bg-gray-600 text-gray-600 dark:text-gray-300 shrink-0">
+                    {currentAgent?.team?.replace(' Team', '') || ''}
+                  </span>
+                  <ChevronDown size={13} className={`text-gray-400 dark:text-gray-400 transition-transform duration-200 ${agentDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {agentDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setAgentDropdownOpen(false)} />
-                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 z-50 max-h-80 flex flex-col">
+                    <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 z-50 max-h-80 flex flex-col">
                       <div className="relative mb-2">
                         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
@@ -537,18 +492,47 @@ function AgentDashboard({
                   </>
                 )}
               </div>
+            )}
 
-              {/* Exit Preview Button */}
+            {/* Back to Dashboard Button in Preview Mode */}
+            {previewMode && onExitPreview && (
               <button
                 onClick={onExitPreview}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold text-[#1C6B53] bg-white hover:bg-emerald-50 shadow-md transition-all shrink-0 active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100/70 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-200/60 dark:border-emerald-800/60 shadow-xs transition active:scale-95 shrink-0"
               >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={13} />
                 <span>Back to Dashboard</span>
               </button>
-            </div>
+            )}
+
+            {(previewMode || toggleDarkMode) && (
+              <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />
+            )}
+
+            {/* Dark Mode Toggle */}
+            {toggleDarkMode && (
+              <button 
+                onClick={toggleDarkMode} 
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors shrink-0"
+                title="Toggle Dark Mode"
+              >
+                {isDarkMode ? <Sun size={16} className="text-amber-500" /> : <Moon size={16} />}
+              </button>
+            )}
+
+            {!previewMode && (
+              <>
+                <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />
+                <button 
+                  onClick={onLogout} 
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition shrink-0"
+                >
+                  <LogOut size={14} /> <span>Logout</span>
+                </button>
+              </>
+            )}
           </div>
-        )}
+        </div>
         
         {/* Header with Profile */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white dark:bg-gray-800 p-6 sm:p-7 rounded-3xl shadow-sm border border-gray-200/70 dark:border-gray-700/80">
