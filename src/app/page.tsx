@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseClient";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs, getDoc, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check } from "lucide-react";
+import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
 const TEAMS: TeamName[] = ['Younis Kamal Team', 'Ankido Buya Team', 'Mohammed Dlshad Team'];
@@ -81,6 +81,73 @@ function validatePasswordSecurity(password: string): { isValid: boolean; error: 
 }
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+const KPI_META: Record<string, { icon: any; color: string; bgLight: string; bgDark: string; border: string; label: string }> = {
+  quality: { 
+    icon: Award, 
+    color: 'text-emerald-600 dark:text-emerald-400', 
+    bgLight: 'bg-emerald-500/10', 
+    bgDark: 'dark:bg-emerald-500/15',
+    border: 'bg-emerald-500',
+    label: 'Quality Score'
+  },
+  exam: { 
+    icon: CheckCircle2, 
+    color: 'text-blue-600 dark:text-blue-400', 
+    bgLight: 'bg-blue-500/10', 
+    bgDark: 'dark:bg-blue-500/15',
+    border: 'bg-blue-500',
+    label: 'Assessment Exam'
+  },
+  productivity: { 
+    icon: TrendingUp, 
+    color: 'text-purple-600 dark:text-purple-400', 
+    bgLight: 'bg-purple-500/10', 
+    bgDark: 'dark:bg-purple-500/15',
+    border: 'bg-purple-500',
+    label: 'Productivity Rate'
+  },
+  aht: { 
+    icon: Clock, 
+    color: 'text-rose-600 dark:text-rose-400', 
+    bgLight: 'bg-rose-500/10', 
+    bgDark: 'dark:bg-rose-500/15',
+    border: 'bg-rose-500',
+    label: 'Average Handling Time'
+  },
+  hold: { 
+    icon: PhoneOff, 
+    color: 'text-cyan-600 dark:text-cyan-400', 
+    bgLight: 'bg-cyan-500/10', 
+    bgDark: 'dark:bg-cyan-500/15',
+    border: 'bg-cyan-500',
+    label: 'Hold Duration'
+  },
+  wrapup: { 
+    icon: Activity, 
+    color: 'text-amber-600 dark:text-amber-400', 
+    bgLight: 'bg-amber-500/10', 
+    bgDark: 'dark:bg-amber-500/15',
+    border: 'bg-amber-500',
+    label: 'Wrap-Up Time'
+  },
+  handled: { 
+    icon: PhoneCall, 
+    color: 'text-teal-600 dark:text-teal-400', 
+    bgLight: 'bg-teal-500/10', 
+    bgDark: 'dark:bg-teal-500/15',
+    border: 'bg-teal-500',
+    label: 'Handled Interactions'
+  },
+  abandoned: { 
+    icon: PhoneMissed, 
+    color: 'text-red-600 dark:text-red-400', 
+    bgLight: 'bg-red-500/10', 
+    bgDark: 'dark:bg-red-500/15',
+    border: 'bg-red-500',
+    label: 'Abandoned Calls'
+  },
+};
 
 function AgentDashboard({ 
   userProfile, 
@@ -570,26 +637,16 @@ function AgentDashboard({
                   return (
                     <div 
                       key={col.id} 
-                      className="relative overflow-hidden bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/15 hover:border-emerald-400/40 rounded-2xl p-4 sm:p-5 transition-all duration-200 group shadow-sm hover:shadow-md"
+                      className="relative overflow-hidden bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/15 hover:border-emerald-400/40 rounded-2xl p-4 transition-all duration-200 group shadow-sm hover:shadow-md flex flex-col justify-between"
                     >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-xs font-bold text-emerald-100/80 group-hover:text-white transition-colors truncate">
-                          {toTitleCase(col.label)}
-                        </span>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 uppercase tracking-wider shrink-0">
-                          {col.aggregation === 'sum' ? 'Sum' : 'Avg'}
-                        </span>
-                      </div>
+                      <span className="text-xs font-semibold text-emerald-100/80 group-hover:text-white transition-colors truncate block">
+                        {toTitleCase(col.label)}
+                      </span>
                       
-                      <div className="flex items-baseline justify-between mt-2">
-                        <span className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none group-hover:scale-[1.02] transition-transform">
+                      <div className="mt-2.5 flex items-baseline">
+                        <span className="text-2xl font-black text-white tracking-tight leading-none">
                           {yearAvg}
                         </span>
-                      </div>
-
-                      <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] text-emerald-200/60 font-medium">
-                        <span>Year Cumulative</span>
-                        <span className="text-emerald-300 font-bold">{selectedYear}</span>
                       </div>
                     </div>
                   );
@@ -597,94 +654,147 @@ function AgentDashboard({
               </div>
             </div>
 
-            {/* Month / Period Selector */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden p-2">
-              <div className="flex items-center px-2 overflow-x-auto scrollbar-hide gap-1.5">
-                {/* Modern Year Select */}
-                <div className="relative mr-2 shrink-0">
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                    className="appearance-none pl-3 pr-7 py-2 text-xs font-bold rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/50 transition-colors"
-                  >
-                    <option value="2026">2026</option>
-                    <option value="2027">2027</option>
-                    <option value="2028">2028</option>
-                    <option value="2029">2029</option>
-                    <option value="2030">2030</option>
-                  </select>
-                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400" />
+            {/* Monthly / Period Performance Section (Hero Operational Scorecard - Extra Prominent & Modern) */}
+            <div className="bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-8 shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-200/80 dark:border-gray-700/80 space-y-6">
+              
+              {/* Header & Period Navigation Controls */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-gray-100 dark:border-gray-700/80">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] font-bold tracking-widest uppercase mb-1.5">
+                    <Calendar size={13} className="text-[#1C6B53] dark:text-emerald-400" />
+                    <span>Period Performance Scorecard</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+                    {selectedMonth} {selectedYear} Performance
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                    Individual operational KPIs & targets for the selected active period
+                  </p>
                 </div>
 
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mr-1 shrink-0" />
+                {/* Integrated Period Toolbar */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Modern Year Select Dropdown */}
+                  <div className="relative shrink-0">
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="appearance-none pl-3.5 pr-8 py-2.5 text-xs font-black rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/60 transition-all"
+                    >
+                      <option value="2026">2026</option>
+                      <option value="2027">2027</option>
+                      <option value="2028">2028</option>
+                      <option value="2029">2029</option>
+                      <option value="2030">2030</option>
+                    </select>
+                    <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400 font-bold" />
+                  </div>
 
+                  {/* Active Indicator Badge */}
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-2xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200/60 dark:border-gray-600/60 text-xs font-bold text-gray-600 dark:text-gray-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Active: <strong className="text-gray-900 dark:text-white">{selectedMonth} {selectedYear}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Month / Period Selector Pills Toolbar */}
+              <div className="bg-gray-50 dark:bg-gray-900/60 p-2 rounded-2xl border border-gray-100 dark:border-gray-750 flex items-center overflow-x-auto scrollbar-hide gap-1.5">
                 {/* Month tabs */}
                 {months.map(m => (
                   <button
                     key={m}
                     onClick={() => setSelectedMonth(m)}
-                    className={`shrink-0 px-3 py-1.5 text-xs font-bold rounded-xl transition ${
+                    className={`shrink-0 px-3.5 py-2 text-xs font-black rounded-xl transition-all duration-150 ${
                       selectedMonth === m
-                        ? 'bg-[#1C6B53] text-white shadow-sm shadow-[#1C6B53]/25'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.03]'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800'
                     }`}
                   >
                     {m}
                   </button>
                 ))}
 
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+                <div className="w-px h-6 bg-gray-200 dark:bg-gray-750 mx-1 shrink-0" />
 
                 {/* Period tabs */}
                 {PERIODS.map(p => (
                   <button
                     key={p.label}
                     onClick={() => setSelectedMonth(p.label)}
-                    className={`shrink-0 px-2.5 py-1.5 text-[11px] font-bold rounded-xl transition whitespace-nowrap ${
+                    className={`shrink-0 px-3 py-2 text-xs font-black rounded-xl transition-all duration-150 whitespace-nowrap ${
                       selectedMonth === p.label
-                        ? 'bg-[#1C6B53] text-white shadow-sm shadow-[#1C6B53]/25'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.03]'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800'
                     }`}
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* KPI Cards — clean white with colored accents */}
-            {(() => {
-              const accents = [
-                { border: 'border-l-[#1C6B53]', label: 'text-[#1C6B53]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#1C6B53]' },
-                { border: 'border-l-[#2563eb]', label: 'text-[#2563eb]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#2563eb]' },
-                { border: 'border-l-[#7c3aed]', label: 'text-[#7c3aed]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#7c3aed]' },
-                { border: 'border-l-[#db2777]', label: 'text-[#db2777]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#db2777]' },
-                { border: 'border-l-[#0891b2]', label: 'text-[#0891b2]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#0891b2]' },
-                { border: 'border-l-[#d97706]', label: 'text-[#d97706]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#d97706]' },
-                { border: 'border-l-[#059669]', label: 'text-[#059669]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#059669]' },
-                { border: 'border-l-[#dc2626]', label: 'text-[#dc2626]', val: 'text-gray-900 dark:text-white', dot: 'bg-[#dc2626]' },
-              ];
-              return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {teamCols.map((col: any, i: number) => {
-                    const a = accents[i % accents.length];
-                    const val = getDisplayVal(col);
-                    return (
-                      <div key={col.id} className={`bg-white dark:bg-gray-800 border-l-4 ${a.border} rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col gap-3`}>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${a.dot}`} />
-                          <span className={`text-xs font-bold tracking-wide ${a.label}`}>{toTitleCase(col.label)}</span>
+              {/* KPI Cards — Grand, High-Impact Modern Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 pt-2">
+                {teamCols.map((col: any) => {
+                  const meta = KPI_META[col.id] || {
+                    icon: Activity,
+                    color: 'text-[#1C6B53] dark:text-emerald-400',
+                    bgLight: 'bg-emerald-500/10',
+                    bgDark: 'dark:bg-emerald-500/15',
+                    border: 'bg-[#1C6B53]',
+                    label: toTitleCase(col.label)
+                  };
+                  const IconComp = meta.icon;
+                  const val = getDisplayVal(col);
+
+                  return (
+                    <div 
+                      key={col.id} 
+                      className="group relative overflow-hidden bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-7 border border-gray-200/80 dark:border-gray-700/80 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between min-h-[180px] sm:min-h-[200px]"
+                    >
+                      {/* Top colored accent indicator line */}
+                      <div className={`absolute top-0 left-0 right-0 h-1.5 ${meta.border}`} />
+
+                      <div>
+                        {/* Header: Icon + Metric Title */}
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${meta.bgLight} ${meta.bgDark} ${meta.color} shadow-xs group-hover:scale-110 transition-transform`}>
+                              <IconComp size={19} strokeWidth={2.5} />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs sm:text-sm font-extrabold text-gray-700 dark:text-gray-200 tracking-tight block truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                                {toTitleCase(col.label)}
+                              </span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium block truncate">
+                                {meta.label}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className={`text-3xl font-black ${a.val} leading-none tracking-tight`}>{val}</span>
-                          <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{selectedMonth} · {selectedYear}</p>
+
+                        {/* Hero Big Value */}
+                        <div className="my-2">
+                          <div className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                            {val}
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+
+                      {/* Card Footer */}
+                      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/70 flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>Active Period</span>
+                        </span>
+                        <span className="font-bold text-gray-600 dark:text-gray-300">{selectedMonth} {selectedYear}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
 
           </div>
         )}
