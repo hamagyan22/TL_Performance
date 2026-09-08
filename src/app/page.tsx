@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseClient";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "firebase/auth";
-import { collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, doc, setDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
 import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
@@ -99,29 +99,52 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
     userProfile.team === 'Ankido Buya Team' ? 'ankido_metrics' :
     'mohammed_metrics';
 
-  const fetchMyData = async () => {
+  useEffect(() => {
+    if (showEditProfile) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showEditProfile]);
+
+  useEffect(() => {
     setLoading(true);
-    try {
-      const q = query(collection(db, tableName), where('agent_name', '==', userProfile.agent_name), where('year', '==', selectedYear));
-      const snap = await getDocs(q);
+    const q = query(
+      collection(db, tableName),
+      where('agent_name', '==', userProfile.agent_name),
+      where('year', '==', selectedYear)
+    );
+    const unsubMetrics = onSnapshot(q, (snap) => {
       setMetrics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      
-      const mQ = query(collection(db, 'team_members'), where('agent_name', '==', userProfile.agent_name), where('team', '==', userProfile.team));
-      const mSnap = await getDocs(mQ);
-      if(!mSnap.empty) {
+      setLoading(false);
+    }, (err) => {
+      console.error(err);
+      setLoading(false);
+    });
+
+    const mQ = query(
+      collection(db, 'team_members'),
+      where('agent_name', '==', userProfile.agent_name),
+      where('team', '==', userProfile.team)
+    );
+    const unsubMember = onSnapshot(mQ, (mSnap) => {
+      if (!mSnap.empty) {
         const mData: any = { id: mSnap.docs[0].id, ...mSnap.docs[0].data() };
         setMemberDoc(mData);
         setEditDisplayName(mData.display_name || mData.agent_name);
         setEditPhotoUrl(mData.photo_url || "");
       }
-    } catch (err) {
+    }, (err) => {
       console.error(err);
-    }
-    setLoading(false);
-  };
+    });
 
-  useEffect(() => {
-    fetchMyData();
+    return () => {
+      unsubMetrics();
+      unsubMember();
+    };
   }, [selectedYear, userProfile, tableName]);
 
   const handleSaveProfile = async () => {
@@ -525,7 +548,7 @@ export default function Dashboard() {
   const [editMemberTeam, setEditMemberTeam] = useState<TeamName>('Younis Kamal Team');
 
   // New/Edit Column state
-  const [manageColsTeam, setManageColsTeam] = useState<TeamName>('Younis Kamal Team');
+  const [manageColsTeam, setManageColsTeam] = useState<string>('ALL');
   const [newColLabel, setNewColLabel] = useState("");
   const [newColType, setNewColType] = useState<'number'|'time'>('number');
   const [newColAgg, setNewColAgg] = useState<'sum'|'average'>('average');
@@ -536,6 +559,50 @@ export default function Dashboard() {
   const [editColAgg, setEditColAgg] = useState<'sum'|'average'>('average');
 
   const [yearMetrics, setYearMetrics] = useState<any[]>([]);
+
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (showManageMembers || showProfileModal || deleteTarget) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showManageMembers, showProfileModal, deleteTarget]);
+
+  // Real-time columns synchronization across all teams, TLs, and Agents
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'columns_config'), (snap) => {
+      const map: Record<string, ColumnConfig[]> = {};
+      snap.docs.forEach(d => {
+        map[d.id] = d.data().columns;
+      });
+      for (const t of TEAMS) {
+        if (!map[t] || map[t].length === 0) {
+          map[t] = t === 'Mohammed Dlshad Team' ? DEFAULT_CHAT_COLUMNS : DEFAULT_OTHER_COLUMNS;
+          setDoc(doc(db, 'columns_config', t), { columns: map[t] }).catch(console.error);
+        }
+      }
+      setColumnsMap(map);
+    }, (err) => {
+      console.error("Columns listener error:", err);
+    });
+    return () => unsub();
+  }, []);
+
+  // Real-time team members sync across all accounts
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'team_members'), (snap) => {
+      const members = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      members.sort((a, b) => (a.agent_name > b.agent_name ? 1 : -1));
+      setAllMembers(members);
+    }, (err) => {
+      console.error("Members listener error:", err);
+    });
+    return () => unsub();
+  }, []);
 
   const months = [
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
@@ -564,29 +631,6 @@ export default function Dashboard() {
     selectedTeam === 'Younis Kamal Team' ? 'younis_metrics' :
     selectedTeam === 'Ankido Buya Team' ? 'ankido_metrics' :
     'mohammed_metrics';
-
-  const fetchColumns = async () => {
-    try {
-      const snap = await getDocs(collection(db, 'columns_config'));
-      const map: Record<string, ColumnConfig[]> = {};
-      snap.docs.forEach(d => {
-        map[d.id] = d.data().columns;
-      });
-      
-      for (const t of TEAMS) {
-        if (!map[t] || map[t].length === 0) {
-          map[t] = t === 'Mohammed Dlshad Team' ? DEFAULT_CHAT_COLUMNS : DEFAULT_OTHER_COLUMNS;
-          await setDoc(doc(db, 'columns_config', t), { columns: map[t] });
-        } else if (t !== 'Mohammed Dlshad Team') {
-          map[t] = sortColumnsByOrder(map[t]);
-          await updateDoc(doc(db, 'columns_config', t), { columns: map[t] });
-        }
-      }
-      setColumnsMap(map);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const calcYearTeamStat = (col: ColumnConfig) => {
     const validMetrics = yearMetrics.filter(r => r[col.id] && r[col.id].toString().trim() !== "");
@@ -634,7 +678,6 @@ export default function Dashboard() {
              }
            } catch(e) { console.error(e); setUserProfile({ role: 'tl' }); }
            setAuthLoading(false);
-           fetchColumns();
         });
       } else {
         setUserProfile(null);
@@ -810,7 +853,7 @@ export default function Dashboard() {
 
   const openManageModal = () => {
     const targetTeam = (userProfile?.role === 'tl' && userProfile?.team) ? userProfile.team : selectedTeam;
-    setManageColsTeam(targetTeam);
+    setManageColsTeam(userProfile?.role === 'manager' ? 'ALL' : targetTeam);
     setNewMemberTeam(targetTeam);
     fetchAllMembers();
     setShowManageMembers(true);
@@ -875,12 +918,18 @@ export default function Dashboard() {
     const newId = newColLabel.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
     const newCol: ColumnConfig = { id: newId, label: newColLabel.trim(), type: newColType, aggregation: newColAgg };
     
-    const currentCols = columnsMap[manageColsTeam] || [];
-    const updatedCols = [...currentCols, newCol];
-    
     try {
-      await updateDoc(doc(db, 'columns_config', manageColsTeam), { columns: updatedCols });
-      setColumnsMap({ ...columnsMap, [manageColsTeam]: updatedCols });
+      const targetTeams = manageColsTeam === 'ALL' ? TEAMS : [manageColsTeam as TeamName];
+      const newMap = { ...columnsMap };
+      for (const t of targetTeams) {
+        const currentCols = newMap[t] || [];
+        if (!currentCols.some(c => c.id === newId)) {
+          const updatedCols = [...currentCols, newCol];
+          newMap[t] = updatedCols;
+          await setDoc(doc(db, 'columns_config', t), { columns: updatedCols }, { merge: true });
+        }
+      }
+      setColumnsMap(newMap);
       setNewColLabel("");
     } catch (err: any) {
       setErrorMsg(`Failed to add column: ${err.message}`);
@@ -896,15 +945,20 @@ export default function Dashboard() {
 
   const handleSaveColumn = async () => {
     if (!editingColId || !editColLabel.trim()) return;
-    const currentCols = columnsMap[manageColsTeam] || [];
-    const updatedCols = currentCols.map(c => 
-      c.id === editingColId 
-        ? { ...c, label: editColLabel.trim(), type: editColType, aggregation: editColAgg } 
-        : c
-    );
     try {
-      await updateDoc(doc(db, 'columns_config', manageColsTeam), { columns: updatedCols });
-      setColumnsMap({ ...columnsMap, [manageColsTeam]: updatedCols });
+      const targetTeams = manageColsTeam === 'ALL' ? TEAMS : [manageColsTeam as TeamName];
+      const newMap = { ...columnsMap };
+      for (const t of targetTeams) {
+        const currentCols = newMap[t] || [];
+        const updatedCols = currentCols.map(c => 
+          c.id === editingColId 
+            ? { ...c, label: editColLabel.trim(), type: editColType, aggregation: editColAgg } 
+            : c
+        );
+        newMap[t] = updatedCols;
+        await setDoc(doc(db, 'columns_config', t), { columns: updatedCols }, { merge: true });
+      }
+      setColumnsMap(newMap);
       setEditingColId(null);
     } catch (err: any) {
       setErrorMsg(`Failed to edit column: ${err.message}`);
@@ -912,11 +966,16 @@ export default function Dashboard() {
   };
 
   const handleRemoveColumn = async (colId: string) => {
-    const currentCols = columnsMap[manageColsTeam] || [];
-    const updatedCols = currentCols.filter(c => c.id !== colId);
     try {
-      await updateDoc(doc(db, 'columns_config', manageColsTeam), { columns: updatedCols });
-      setColumnsMap({ ...columnsMap, [manageColsTeam]: updatedCols });
+      const targetTeams = manageColsTeam === 'ALL' ? TEAMS : [manageColsTeam as TeamName];
+      const newMap = { ...columnsMap };
+      for (const t of targetTeams) {
+        const currentCols = newMap[t] || [];
+        const updatedCols = currentCols.filter(c => c.id !== colId);
+        newMap[t] = updatedCols;
+        await setDoc(doc(db, 'columns_config', t), { columns: updatedCols }, { merge: true });
+      }
+      setColumnsMap(newMap);
     } catch (err: any) {
       setErrorMsg(`Failed to remove column: ${err.message}`);
     }
@@ -1017,7 +1076,9 @@ export default function Dashboard() {
     : allMembers;
 
   const activeCols = columnsMap[selectedTeam] || [];
-  const manageCols = columnsMap[manageColsTeam] || [];
+  const manageCols = manageColsTeam === 'ALL'
+    ? (columnsMap['Ankido Buya Team'] || columnsMap['Younis Kamal Team'] || columnsMap[selectedTeam] || [])
+    : (columnsMap[manageColsTeam] || []);
 
   return (
     <div className="min-h-screen p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
@@ -1049,11 +1110,21 @@ export default function Dashboard() {
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* Profile Button */}
+            {/* Manage Team / System Config Button - Beside Profile */}
+            <button
+              onClick={openManageModal}
+              className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-xl text-xs sm:text-sm font-bold shadow-sm"
+              title={userProfile?.role === 'manager' ? 'System Configuration' : 'Manage Team'}
+            >
+              {userProfile?.role === 'manager' ? <Settings size={15} className="text-[#1C6B53] dark:text-emerald-400" /> : <Users size={15} className="text-[#1C6B53] dark:text-emerald-400" />}
+              <span>{userProfile?.role === 'manager' ? 'System Config' : 'Manage Team'}</span>
+            </button>
+
+            {/* Profile Button - Pencil icon removed */}
             <button 
               onClick={openProfileModal}
               className="flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-800 group"
-              title="Edit Profile"
+              title="Profile"
             >
               <div className="w-7 h-7 rounded-full bg-[#1C6B53]/15 dark:bg-emerald-950 flex items-center justify-center overflow-hidden border border-[#1C6B53]/30 text-[#1C6B53] dark:text-emerald-400 font-black text-xs">
                 {userProfile?.photo_url ? (
@@ -1063,7 +1134,6 @@ export default function Dashboard() {
                 )}
               </div>
               <span className="max-w-[130px] truncate">{userProfile?.name || (userProfile?.role === 'manager' ? 'Jalal Burghol' : 'Team Lead')}</span>
-              <Edit2 size={13} className="text-gray-400 group-hover:text-[#1C6B53] transition" />
             </button>
 
             {/* Logout Button */}
@@ -1161,87 +1231,78 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Month Tabs & Controls */}
-        <div className="flex flex-col mb-5 gap-3.5">
-          
-          {/* Top Row: Search and Manage */}
-          <div className="flex flex-row items-center gap-3 w-full justify-start">
-            <div className="relative flex-grow sm:flex-grow-0">
-              <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search agent..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:border-[#1C6B53] dark:focus:border-emerald-500 text-sm w-full sm:w-52 transition dark:text-gray-200 shadow-sm"
-              />
-            </div>
-            <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap">
-              {rows.length} Agents
-            </span>
-            <button
-              onClick={openManageModal}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-xl text-xs font-bold shadow-sm"
-            >
-              {userProfile?.role === 'manager' ? <Settings size={14} /> : <Users size={14} />}
-              {userProfile?.role === 'manager' ? 'System Config' : 'Manage Agents'}
-            </button>
+        {/* Month Tabs & Controls Bar */}
+        <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto shadow-sm mb-5">
+          {/* Year selector */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0 flex-shrink-0"
+          >
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+            <option value="2029">2029</option>
+            <option value="2030">2030</option>
+          </select>
+
+          {/* Search Agent Input & Count next to Year */}
+          <div className="relative flex-shrink-0">
+            <Search size={13} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search agent..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 pr-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/80 dark:bg-gray-900/60 focus:outline-none focus:border-[#1C6B53] dark:focus:border-emerald-500 text-xs w-36 sm:w-44 transition dark:text-gray-200 font-medium"
+            />
           </div>
+          <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap px-1 flex-shrink-0">
+            {filteredRows.length} Agents
+          </span>
 
-          {/* Bottom Row: Month Tabs (Modern Pill Bar with Q1-Q4, H1, H2) */}
-          <div className="flex items-center gap-1.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto shadow-sm">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-3.5 py-1.5 mr-1 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0 flex-shrink-0"
-            >
-              <option value="2026">2026</option>
-              <option value="2027">2027</option>
-              <option value="2028">2028</option>
-              <option value="2029">2029</option>
-              <option value="2030">2030</option>
-            </select>
+          {/* Separator */}
+          <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0" />
 
-            {/* Months (Jan - Dec) */}
-            {months.map(m => {
-              const displayLabel = m.charAt(0) + m.slice(1).toLowerCase();
-              const isSel = selectedMonth === m;
-              return (
-                <button
-                  key={m}
-                  onClick={() => setSelectedMonth(m)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
-                    isSel
-                      ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60'
-                  }`}
-                >
-                  {displayLabel}
-                </button>
-              );
-            })}
+          {/* Months (Jan - Dec) */}
+          {months.map(m => {
+            const displayLabel = m.charAt(0) + m.slice(1).toLowerCase();
+            const isSel = selectedMonth === m;
+            return (
+              <button
+                key={m}
+                onClick={() => setSelectedMonth(m)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
+                  isSel
+                    ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                }`}
+              >
+                {displayLabel}
+              </button>
+            );
+          })}
 
-            {/* Separator */}
-            <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0" />
+          {/* Separator */}
+          <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-1 flex-shrink-0" />
 
-            {/* Quarters & Halves */}
-            {periods.map(p => {
-              const isSel = selectedMonth === p;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setSelectedMonth(p)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex-shrink-0 ${
-                    isSel
-                      ? 'bg-[#00A991] text-white shadow-md shadow-[#00A991]/30'
-                      : 'text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-          </div>
+          {/* Quarters & Halves */}
+          {periods.map(p => {
+            const isSel = selectedMonth === p;
+            return (
+              <button
+                key={p}
+                onClick={() => setSelectedMonth(p)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex-shrink-0 ${
+                  isSel
+                    ? 'bg-[#00A991] text-white shadow-md shadow-[#00A991]/30'
+                    : 'text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
         </div>
 
         {/* Data Table */}
@@ -1326,9 +1387,9 @@ export default function Dashboard() {
 
       {/* Manage Settings Modal (System Configuration) */}
       {showManageMembers && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowManageMembers(false)} />
-          <div className={`relative bg-[#F9F8F4] dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all ${userProfile?.role === 'manager' ? 'max-w-5xl' : 'max-w-2xl'}`}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto overscroll-contain">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowManageMembers(false)} />
+          <div className={`relative bg-[#F9F8F4] dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all overscroll-contain ${userProfile?.role === 'manager' ? 'max-w-5xl' : 'max-w-2xl'}`}>
             
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -1401,7 +1462,7 @@ export default function Dashboard() {
                   <UserPlus size={16}/> Add Agent
                 </button>
 
-                <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
+                <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
                   {displayedMembers.length === 0 && <div className="text-xs text-gray-400 text-center mt-6">No agents found in this team.</div>}
                   {displayedMembers.map((member) => (
                     <div key={member.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
@@ -1453,19 +1514,26 @@ export default function Dashboard() {
               {/* Columns Card - ONLY FOR MANAGER */}
               {userProfile?.role === 'manager' && (
                 <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Columns size={18} className="text-gray-600 dark:text-gray-300" />
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns</h3>
+                      <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns & KPIs</h3>
                     </div>
                     <select 
                       value={manageColsTeam} 
                       onChange={(e: any) => setManageColsTeam(e.target.value)}
-                      className="text-xs bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1 text-gray-700 dark:text-gray-300 outline-none focus:border-[#1C6B53]"
+                      className="text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1 text-gray-700 dark:text-gray-300 outline-none focus:border-[#1C6B53] font-semibold"
                     >
+                      <option value="ALL">🌐 All Teams (Global / الجميع)</option>
                       {activeTeams.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+
+                  {manageColsTeam === 'ALL' && (
+                    <div className="mb-3 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl text-[11px] text-[#1C6B53] dark:text-emerald-300 font-semibold flex items-center gap-1.5">
+                      <span>✓ Syncs across all Team Leaders & Agent dashboards automatically</span>
+                    </div>
+                  )}
                   
                   <input
                     type="text"
@@ -1504,12 +1572,12 @@ export default function Dashboard() {
 
                   <button
                     onClick={handleAddColumn}
-                    className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-6"
+                    className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5"
                   >
                     <Plus size={16} /> Add Column
                   </button>
 
-                  <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
+                  <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
                     {manageCols.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No columns configured.</div>}
                     {manageCols.map((col) => (
                       <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
