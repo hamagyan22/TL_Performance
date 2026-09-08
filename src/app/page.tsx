@@ -41,6 +41,11 @@ const DEFAULT_OTHER_COLUMNS: ColumnConfig[] = [
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Camera } from "lucide-react";
 
+function toTitleCase(str: string) {
+  if (!str) return '';
+  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+}
+
 
 function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: any, onLogout: () => void, columnsMap: any }) {
   const [loading, setLoading] = useState(true);
@@ -517,8 +522,7 @@ export default function Dashboard() {
   const [editColAgg, setEditColAgg] = useState<'sum'|'average'>('average');
 
   const months = [
-    "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
-    "Q1 - AVG", "Q2 - AVG", "Q3 - AVG", "Q4 - AVG", "H1 - AVG", "H2 - AVG", "YEAR - AVG"
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
   ];
 
   const aggregateMap: Record<string, string[]> = {
@@ -956,18 +960,24 @@ export default function Dashboard() {
       <div className="max-w-[1400px] mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/60 dark:border-gray-800">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
-                {userProfile?.role === 'manager' ? 'Manager Dashboard' : 'Team Lead Dashboard'}
-              </h1>
-              <span className="px-3 py-1 text-xs font-extrabold rounded-full bg-[#1C6B53]/10 text-[#1C6B53] dark:bg-emerald-500/20 dark:text-emerald-400 border border-[#1C6B53]/20">
-                {userProfile?.role === 'manager' ? 'Executive Manager' : (userProfile?.team?.replace(' Team', '') || 'Team Lead')}
-              </span>
+          <div className="flex items-center gap-3.5 sm:gap-5">
+            <div className="flex items-center gap-2">
+              <img src="/logo.webp" alt="FIB Logo" className="h-8 sm:h-9 object-contain" />
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
-              Performance metrics, agent monitoring & analytics overview
-            </p>
+            <div className="h-8 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                  Team Leader Dashboard
+                </h1>
+                <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-[#1C6B53]/10 text-[#1C6B53] dark:bg-emerald-500/20 dark:text-emerald-400 border border-[#1C6B53]/20">
+                  {userProfile?.role === 'manager' ? 'Executive Manager' : (userProfile?.team?.replace(' Team', '') || 'Team Lead')}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                Shift & Team Management
+              </p>
+            </div>
           </div>
           
           <div className="flex gap-2.5 items-center flex-wrap">
@@ -1016,16 +1026,11 @@ export default function Dashboard() {
                   <Users size={24} className="text-emerald-200" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
-                      {activeTeams[0]}
-                    </h2>
-                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
-                      Team Overview
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-100/70 mt-0.5 font-medium">
-                    {selectedMonth} {selectedYear} Performance Summary • {rows.length} Active Agents
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                    {activeTeams[0]}
+                  </h2>
+                  <p className="text-xs text-emerald-100/80 mt-1 font-medium">
+                    {selectedMonth.charAt(0) + selectedMonth.slice(1).toLowerCase()} {selectedYear} Performance Summary • {rows.length} Active Agents
                   </p>
                 </div>
               </div>
@@ -1037,14 +1042,14 @@ export default function Dashboard() {
                 const avgVal = calcAvg(col, rows);
                 return (
                   <div key={col.id} className="bg-white/10 dark:bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 flex flex-col justify-between hover:bg-white/15 transition shadow-sm">
-                    <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-100/90 truncate mb-2" title={col.label}>
-                      {col.label}
+                    <div className="text-[11px] font-bold tracking-wide text-emerald-100/90 truncate mb-2" title={col.label}>
+                      {toTitleCase(col.label)}
                     </div>
                     <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
                       {avgVal}
                     </div>
-                    <div className="text-[9px] text-emerald-300/70 font-semibold uppercase mt-1">
-                      {col.aggregation}
+                    <div className="text-[10px] text-emerald-300/70 font-medium mt-1">
+                      {toTitleCase(col.aggregation)}
                     </div>
                   </div>
                 );
@@ -1067,7 +1072,7 @@ export default function Dashboard() {
                 >
                   <div className="flex justify-between items-start w-full mb-4">
                     <div>
-                      <span className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${isActive ? 'text-emerald-200' : 'text-gray-400'}`}>
+                      <span className={`text-[10px] font-bold tracking-widest block mb-1 ${isActive ? 'text-emerald-200' : 'text-gray-400'}`}>
                         Team Performance
                       </span>
                       <h2 className="text-base sm:text-lg font-bold tracking-tight">
@@ -1082,8 +1087,8 @@ export default function Dashboard() {
                   <div className="grid grid-cols-4 gap-2 w-full mt-2">
                     {teamCols.slice(0, 8).map(col => (
                       <div key={col.id} className={`p-2 rounded-xl text-center border ${isActive ? 'bg-white/10 border-white/10' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700'}`}>
-                        <div className={`text-[9px] uppercase font-bold truncate ${isActive ? 'text-emerald-100/80' : 'text-gray-400'}`} title={col.label}>
-                          {col.label}
+                        <div className={`text-[9px] font-bold truncate ${isActive ? 'text-emerald-100/80' : 'text-gray-400'}`} title={col.label}>
+                          {toTitleCase(col.label)}
                         </div>
                         <div className="font-extrabold text-xs sm:text-sm mt-0.5">
                           {isActive ? calcAvg(col, rows) : '-'}
@@ -1098,38 +1103,38 @@ export default function Dashboard() {
         )}
 
         {/* Month Tabs & Controls */}
-        <div className="flex flex-col mb-4 gap-4">
+        <div className="flex flex-col mb-5 gap-3.5">
           
           {/* Top Row: Search and Manage */}
           <div className="flex flex-row items-center gap-3 w-full justify-start">
             <div className="relative flex-grow sm:flex-grow-0">
-              <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search agent..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-1.5 border border-gray-200 dark:border-gray-700 rounded-sm bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 text-sm w-full sm:w-48 transition dark:text-gray-200"
+                className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:outline-none focus:border-[#1C6B53] dark:focus:border-emerald-500 text-sm w-full sm:w-52 transition dark:text-gray-200 shadow-sm"
               />
             </div>
-            <span className="text-gray-500 dark:text-gray-400 text-xs font-medium tracking-wide whitespace-nowrap">
-              {rows.length} agents
+            <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap">
+              {rows.length} Agents
             </span>
             <button
               onClick={openManageModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-sm text-xs font-bold tracking-wider uppercase shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-xl text-xs font-bold shadow-sm"
             >
-              {userProfile?.role === 'manager' ? <Settings size={13} /> : <Users size={13} />}
+              {userProfile?.role === 'manager' ? <Settings size={14} /> : <Users size={14} />}
               {userProfile?.role === 'manager' ? 'System Config' : 'Manage Agents'}
             </button>
           </div>
 
-          {/* Bottom Row: Month Tabs (One Line, No Scroll) */}
-          <div className="flex flex-nowrap gap-1 bg-[#F1EFE8] dark:bg-gray-800 p-1 rounded-sm items-center border border-transparent dark:border-gray-700 w-full overflow-hidden">
+          {/* Bottom Row: Month Tabs (Modern Pill Carousel) */}
+          <div className="flex items-center gap-1.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto shadow-sm">
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-3 py-1.5 mr-2 rounded-sm text-[11px] font-bold tracking-wider uppercase bg-[#1a1a1a] dark:bg-gray-900 text-white shadow-sm outline-none cursor-pointer border border-transparent dark:border-gray-700 flex-shrink-0"
+              className="px-3.5 py-1.5 mr-1 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0 flex-shrink-0"
             >
               <option value="2026">2026</option>
               <option value="2027">2027</option>
@@ -1137,19 +1142,22 @@ export default function Dashboard() {
               <option value="2029">2029</option>
               <option value="2030">2030</option>
             </select>
-            {months.map(m => (
-              <button
-                key={m}
-                onClick={() => setSelectedMonth(m)}
-                className={`px-3 py-1.5 rounded-sm text-[11px] font-bold tracking-wider transition uppercase whitespace-nowrap flex-shrink-1 min-w-0 ${
-                  selectedMonth === m
-                    ? 'bg-[#1a1a1a] dark:bg-gray-700 text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-[#EAE7DF] dark:hover:bg-gray-700'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+            {months.map(m => {
+              const displayLabel = m.charAt(0) + m.slice(1).toLowerCase();
+              return (
+                <button
+                  key={m}
+                  onClick={() => setSelectedMonth(m)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 ${
+                    selectedMonth === m
+                      ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60'
+                  }`}
+                >
+                  {displayLabel}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1164,10 +1172,10 @@ export default function Dashboard() {
 
           <div className="min-w-[1100px]">
             {/* Table Header */}
-            <div className="grid gap-2 px-4 py-3 bg-[#F4F2EC] dark:bg-gray-800 text-[10px] font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase border-b border-transparent dark:border-gray-700"
+            <div className="grid gap-2 px-4 py-3 bg-[#F4F2EC] dark:bg-gray-800 text-xs font-bold text-gray-600 dark:text-gray-400 border-b border-gray-200/60 dark:border-gray-700"
                  style={{ gridTemplateColumns: `2fr repeat(${activeCols.length}, 1fr)` }}>
               <div className="pl-2">Agent</div>
-              {activeCols.map(col => <div key={col.id} className="text-right">{col.label}</div>)}
+              {activeCols.map(col => <div key={col.id} className="text-right">{toTitleCase(col.label)}</div>)}
             </div>
 
             {/* Table Body */}
@@ -1217,7 +1225,7 @@ export default function Dashboard() {
             {!loading && (
                <div className="grid gap-2 px-4 py-4 bg-[#F4F2EC] dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 items-center"
                     style={{ gridTemplateColumns: `2fr repeat(${activeCols.length}, 1fr)` }}>
-                 <div className="text-[10px] font-bold tracking-widest text-gray-600 dark:text-gray-400 uppercase pl-2">TEAM AVERAGE</div>
+                 <div className="text-xs font-bold text-gray-600 dark:text-gray-400 pl-2">Team Average</div>
                  {activeCols.map(col => (
                    <div key={col.id} className="text-right text-xs font-semibold text-gray-700 dark:text-gray-300 pr-4">
                      {calcAvg(col, rows)}
