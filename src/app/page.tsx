@@ -69,7 +69,9 @@ function AgentDashboard({
   columnsMap, 
   previewMode = false, 
   allMembers = [], 
-  onExitPreview 
+  onExitPreview,
+  isDarkMode = false,
+  toggleDarkMode
 }: { 
   userProfile: any; 
   onLogout: () => void; 
@@ -77,6 +79,8 @@ function AgentDashboard({
   previewMode?: boolean; 
   allMembers?: any[]; 
   onExitPreview?: () => void; 
+  isDarkMode?: boolean;
+  toggleDarkMode?: () => void;
 }) {
   const currentMonth = MONTHS[new Date().getMonth()];
   const currentYear = new Date().getFullYear().toString();
@@ -291,6 +295,49 @@ function AgentDashboard({
     <div className="min-h-screen p-6 md:p-10 font-sans bg-[#F9F8F4] dark:bg-gray-900 transition-colors">
       <div className="max-w-[1400px] mx-auto">
 
+        {/* Top Brand Header (FIB Logo & Portal Controls) */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/70 dark:border-gray-800">
+          <div className="flex items-center gap-3.5 sm:gap-5">
+            <div className="flex items-center gap-2">
+              <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain drop-shadow-xs" />
+            </div>
+            <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                Agent Dashboard
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                Performance & Scorecards Portal
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs">
+            {/* Dark Mode Toggle */}
+            {toggleDarkMode && (
+              <button 
+                onClick={toggleDarkMode} 
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                title="Toggle Dark Mode"
+              >
+                {isDarkMode ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} />}
+              </button>
+            )}
+
+            {!previewMode && (
+              <>
+                {toggleDarkMode && <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1" />}
+                <button 
+                  onClick={onLogout} 
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-gray-600 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition"
+                >
+                  <LogOut size={14} /> <span>Logout</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Executive Preview Toolbar (When Manager/Admin is inspecting an agent) */}
         {previewMode && (
           <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-[#0C3227] via-[#124235] to-[#0C3227] text-white rounded-3xl shadow-xl border border-emerald-500/25 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-30">
@@ -407,7 +454,7 @@ function AgentDashboard({
         )}
         
         {/* Header with Profile */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white dark:bg-gray-800 p-6 sm:p-7 rounded-3xl shadow-sm border border-gray-200/70 dark:border-gray-700/80">
           <div className="flex items-center gap-5">
             <div className="relative group">
               <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center">
@@ -418,7 +465,11 @@ function AgentDashboard({
                 )}
               </div>
               {!previewMode && (
-                <button onClick={() => setShowEditProfile(true)} className="absolute bottom-0 right-0 p-1.5 bg-[#1C6B53] text-white rounded-full shadow-md hover:bg-emerald-700 transition">
+                <button 
+                  onClick={() => setShowEditProfile(true)} 
+                  className="absolute bottom-0 right-0 p-1.5 bg-[#1C6B53] text-white rounded-full shadow-md hover:bg-emerald-700 transition"
+                  title="Change Profile Photo"
+                >
                   <Edit2 size={12} />
                 </button>
               )}
@@ -442,10 +493,11 @@ function AgentDashboard({
           <div className="flex items-center gap-3">
             {!previewMode && (
               <button 
-                onClick={onLogout} 
-                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                onClick={() => setShowEditProfile(true)}
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-700/60 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600/80 rounded-2xl transition shadow-xs active:scale-95"
               >
-                <LogOut size={15} /> Logout
+                <Edit2 size={13} className="text-[#1C6B53] dark:text-emerald-400" />
+                <span>Edit Profile</span>
               </button>
             )}
           </div>
@@ -456,24 +508,55 @@ function AgentDashboard({
         ) : (
           <div className="space-y-5">
 
-            {/* Year Performance Overview */}
-            <div className="bg-[#0f2d24] rounded-3xl p-6 sm:p-7 shadow-lg border border-emerald-900/40">
-              <div className="flex items-center justify-between mb-5">
+            {/* Year Performance Overview (Modern & Eye-Friendly) */}
+            <div className="bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-7 shadow-sm border border-gray-200/70 dark:border-gray-700/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100 dark:border-gray-700/60">
                 <div>
-                  <p className="text-[#4ade80]/70 text-[10px] font-bold tracking-[0.2em] uppercase mb-1">Year Performance</p>
-                  <p className="text-white text-2xl font-black tracking-tight">{selectedYear} Overview</p>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 text-[11px] font-bold tracking-wide uppercase mb-1">
+                    <Sparkles size={12} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>Annual Performance Summary</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+                    {selectedYear} Comprehensive Overview
+                  </h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium">
+                    Consolidated year-to-date metrics calculated across all 12 months
+                  </p>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-                  <Users size={18} className="text-white/60" />
+                
+                <div className="flex items-center gap-2 self-start sm:self-auto px-3.5 py-2 rounded-2xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200/60 dark:border-gray-700/60 shadow-2xs">
+                  <img src="/logo.webp" alt="FIB Logo" className="h-4.5 w-auto object-contain opacity-80" />
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">FIB Scorecard</span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 mt-5">
                 {teamCols.map((col: any) => {
                   const yearAvg = avgCols(months, col);
                   return (
-                    <div key={col.id} className="bg-white/5 hover:bg-white/8 border border-white/10 rounded-2xl p-4 transition">
-                      <p className="text-white/60 text-[10px] font-bold tracking-wide mb-2">{toTitleCase(col.label)}</p>
-                      <p className="text-white text-2xl font-bold leading-none">{yearAvg}</p>
+                    <div 
+                      key={col.id} 
+                      className="relative overflow-hidden bg-gradient-to-b from-gray-50/90 to-[#f4f7f5]/80 dark:from-gray-900/50 dark:to-gray-900/80 border border-gray-200/70 dark:border-gray-700/70 hover:border-emerald-400/60 dark:hover:border-emerald-500/50 rounded-2xl p-4 sm:p-5 transition-all duration-200 group hover:shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300 group-hover:text-[#1C6B53] dark:group-hover:text-emerald-300 transition-colors truncate">
+                          {toTitleCase(col.label)}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200/60 dark:border-gray-700/60 text-emerald-700 dark:text-emerald-400 uppercase tracking-wider shrink-0 shadow-2xs">
+                          {col.aggregation === 'sum' ? 'Sum' : 'Avg'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-baseline justify-between mt-1">
+                        <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-none">
+                          {yearAvg}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-gray-200/50 dark:border-gray-800/60 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                        <span>Year Cumulative</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{selectedYear}</span>
+                      </div>
                     </div>
                   );
                 })}
@@ -1555,7 +1638,15 @@ export default function Dashboard() {
     }
 
     if (userProfile?.role === 'agent') {
-      return <AgentDashboard userProfile={userProfile} onLogout={handleLogout} columnsMap={columnsMap} />;
+      return (
+        <AgentDashboard 
+          userProfile={userProfile} 
+          onLogout={handleLogout} 
+          columnsMap={columnsMap} 
+          isDarkMode={isDarkMode}
+          toggleDarkMode={toggleDarkMode}
+        />
+      );
     }
 
     if (showAgentPreview) {
@@ -1567,6 +1658,8 @@ export default function Dashboard() {
           previewMode={true} 
           allMembers={allMembers} 
           onExitPreview={() => setShowAgentPreview(false)} 
+          isDarkMode={isDarkMode}
+          toggleDarkMode={toggleDarkMode}
         />
       );
     }
