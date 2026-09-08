@@ -393,7 +393,7 @@ function AgentDashboard({
       <div className="max-w-[1400px] mx-auto">
 
         {/* Top Brand Header (FIB Logo & Portal Controls) */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/70 dark:border-gray-800">
+        <div className="relative z-50 flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/70 dark:border-gray-800">
           <div className="flex items-center gap-3.5 sm:gap-5">
             <div className="flex items-center gap-2">
               <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain drop-shadow-xs" />
@@ -409,7 +409,7 @@ function AgentDashboard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs flex-wrap">
+          <div className="relative z-50 flex items-center gap-2 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-xs flex-wrap">
             {/* Agent Selector Dropdown in Preview Mode */}
             {previewMode && (
               <div className="relative">
