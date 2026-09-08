@@ -654,146 +654,120 @@ function AgentDashboard({
               </div>
             </div>
 
-            {/* Monthly / Period Performance Section (Hero Operational Scorecard - Extra Prominent & Modern) */}
-            <div className="bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-8 shadow-lg shadow-gray-200/50 dark:shadow-none border border-gray-200/80 dark:border-gray-700/80 space-y-6">
-              
-              {/* Header & Period Navigation Controls */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-5 border-b border-gray-100 dark:border-gray-700/80">
-                <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] font-bold tracking-widest uppercase mb-1.5">
-                    <Calendar size={13} className="text-[#1C6B53] dark:text-emerald-400" />
-                    <span>Period Performance Scorecard</span>
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
-                    {selectedMonth} {selectedYear} Performance
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                    Individual operational KPIs & targets for the selected active period
-                  </p>
+            {/* Month / Period Selector Toolbar with Year Dropdown beside months */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-sm p-2">
+              <div className="flex items-center px-1 overflow-x-auto scrollbar-hide gap-1.5">
+                {/* Modern Year Select Dropdown beside months */}
+                <div className="relative shrink-0 mr-1">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="appearance-none pl-3.5 pr-8 py-2 text-xs font-black rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/60 transition-all"
+                  >
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                    <option value="2029">2029</option>
+                    <option value="2030">2030</option>
+                  </select>
+                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400 font-bold" />
                 </div>
 
-                {/* Integrated Period Toolbar */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Modern Year Select Dropdown */}
-                  <div className="relative shrink-0">
-                    <select
-                      value={selectedYear}
-                      onChange={(e) => setSelectedYear(e.target.value)}
-                      className="appearance-none pl-3.5 pr-8 py-2.5 text-xs font-black rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/60 transition-all"
-                    >
-                      <option value="2026">2026</option>
-                      <option value="2027">2027</option>
-                      <option value="2028">2028</option>
-                      <option value="2029">2029</option>
-                      <option value="2030">2030</option>
-                    </select>
-                    <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400 font-bold" />
-                  </div>
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
-                  {/* Active Indicator Badge */}
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-2xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200/60 dark:border-gray-600/60 text-xs font-bold text-gray-600 dark:text-gray-300">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Active: <strong className="text-gray-900 dark:text-white">{selectedMonth} {selectedYear}</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Month / Period Selector Pills Toolbar */}
-              <div className="bg-gray-50 dark:bg-gray-900/60 p-2 rounded-2xl border border-gray-100 dark:border-gray-750 flex items-center overflow-x-auto scrollbar-hide gap-1.5">
                 {/* Month tabs */}
                 {months.map(m => (
                   <button
                     key={m}
                     onClick={() => setSelectedMonth(m)}
-                    className={`shrink-0 px-3.5 py-2 text-xs font-black rounded-xl transition-all duration-150 ${
+                    className={`shrink-0 px-3.5 py-1.5 text-xs font-black rounded-xl transition-all duration-150 ${
                       selectedMonth === m
-                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.03]'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800'
+                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                     }`}
                   >
                     {m}
                   </button>
                 ))}
 
-                <div className="w-px h-6 bg-gray-200 dark:bg-gray-750 mx-1 shrink-0" />
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
                 {/* Period tabs */}
                 {PERIODS.map(p => (
                   <button
                     key={p.label}
                     onClick={() => setSelectedMonth(p.label)}
-                    className={`shrink-0 px-3 py-2 text-xs font-black rounded-xl transition-all duration-150 whitespace-nowrap ${
+                    className={`shrink-0 px-3 py-1.5 text-xs font-black rounded-xl transition-all duration-150 whitespace-nowrap ${
                       selectedMonth === p.label
-                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.03]'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-800'
+                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                     }`}
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
+            </div>
 
-              {/* KPI Cards — Grand, High-Impact Modern Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 pt-2">
-                {teamCols.map((col: any) => {
-                  const meta = KPI_META[col.id] || {
-                    icon: Activity,
-                    color: 'text-[#1C6B53] dark:text-emerald-400',
-                    bgLight: 'bg-emerald-500/10',
-                    bgDark: 'dark:bg-emerald-500/15',
-                    border: 'bg-[#1C6B53]',
-                    label: toTitleCase(col.label)
-                  };
-                  const IconComp = meta.icon;
-                  const val = getDisplayVal(col);
+            {/* KPI Cards — Grand, High-Impact Modern Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
+              {teamCols.map((col: any) => {
+                const meta = KPI_META[col.id] || {
+                  icon: Activity,
+                  color: 'text-[#1C6B53] dark:text-emerald-400',
+                  bgLight: 'bg-emerald-500/10',
+                  bgDark: 'dark:bg-emerald-500/15',
+                  border: 'bg-[#1C6B53]',
+                  label: toTitleCase(col.label)
+                };
+                const IconComp = meta.icon;
+                const val = getDisplayVal(col);
 
-                  return (
-                    <div 
-                      key={col.id} 
-                      className="group relative overflow-hidden bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-7 border border-gray-200/80 dark:border-gray-700/80 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between min-h-[180px] sm:min-h-[200px]"
-                    >
-                      {/* Top colored accent indicator line */}
-                      <div className={`absolute top-0 left-0 right-0 h-1.5 ${meta.border}`} />
+                return (
+                  <div 
+                    key={col.id} 
+                    className="group relative overflow-hidden bg-white dark:bg-gray-800/90 rounded-3xl p-6 sm:p-7 border border-gray-200/80 dark:border-gray-700/80 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between min-h-[180px] sm:min-h-[200px]"
+                  >
+                    {/* Top colored accent indicator line */}
+                    <div className={`absolute top-0 left-0 right-0 h-1.5 ${meta.border}`} />
 
-                      <div>
-                        {/* Header: Icon + Metric Title */}
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${meta.bgLight} ${meta.bgDark} ${meta.color} shadow-xs group-hover:scale-110 transition-transform`}>
-                              <IconComp size={19} strokeWidth={2.5} />
-                            </div>
-                            <div className="min-w-0">
-                              <span className="text-xs sm:text-sm font-extrabold text-gray-700 dark:text-gray-200 tracking-tight block truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                                {toTitleCase(col.label)}
-                              </span>
-                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium block truncate">
-                                {meta.label}
-                              </span>
-                            </div>
+                    <div>
+                      {/* Header: Icon + Metric Title */}
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${meta.bgLight} ${meta.bgDark} ${meta.color} shadow-xs group-hover:scale-110 transition-transform`}>
+                            <IconComp size={19} strokeWidth={2.5} />
                           </div>
-                        </div>
-
-                        {/* Hero Big Value */}
-                        <div className="my-2">
-                          <div className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                            {val}
+                          <div className="min-w-0">
+                            <span className="text-xs sm:text-sm font-extrabold text-gray-700 dark:text-gray-200 tracking-tight block truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                              {toTitleCase(col.label)}
+                            </span>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium block truncate">
+                              {meta.label}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Card Footer */}
-                      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/70 flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          <span>Active Period</span>
-                        </span>
-                        <span className="font-bold text-gray-600 dark:text-gray-300">{selectedMonth} {selectedYear}</span>
+                      {/* Hero Big Value */}
+                      <div className="my-2">
+                        <div className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                          {val}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
+                    {/* Card Footer */}
+                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/70 flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>Active Period</span>
+                      </span>
+                      <span className="font-bold text-gray-600 dark:text-gray-300">{selectedMonth} {selectedYear}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
           </div>
