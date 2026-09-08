@@ -796,6 +796,13 @@ export default function Dashboard() {
     }
   };
 
+  // Ensure selectedTeam is valid for TL
+  useEffect(() => {
+    if (userProfile?.role === 'tl' && userProfile?.team && selectedTeam !== userProfile.team) {
+      setSelectedTeam(userProfile.team);
+    }
+  }, [userProfile, selectedTeam]);
+
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center transition-colors dark:bg-gray-900"><div className="text-gray-500 dark:text-gray-400 font-medium">Loading...</div></div>;
   }
@@ -855,12 +862,6 @@ export default function Dashboard() {
     ? TEAMS.filter(t => t === userProfile.team) 
     : TEAMS;
 
-  // Ensure selectedTeam is valid for TL
-  useEffect(() => {
-    if (userProfile?.role === 'tl' && userProfile?.team && selectedTeam !== userProfile.team) {
-      setSelectedTeam(userProfile.team);
-    }
-  }, [userProfile, selectedTeam]);
 
 const activeCols = columnsMap[selectedTeam] || [];
   const manageCols = columnsMap[manageColsTeam] || [];
