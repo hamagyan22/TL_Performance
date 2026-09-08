@@ -4,3 +4,19 @@ node_modules
 .env.local
 .env.*
 *.tsbuildinfo
+
+# Sensitive credentials and dumps
+emails.txt
+*.txt
+credentials*
+secrets*
+
+# Scratch & Migration scripts
+*.py
+createAgentAccounts.mjs
+listEmails.mjs
+updatePasswordFlag.mjs
+fix.js
+patchAgent3.js
+rewrite.js
+updatePage.js

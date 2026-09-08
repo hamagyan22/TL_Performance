@@ -60,6 +60,25 @@ function toTitleCase(str: string) {
   return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
 }
 
+function validatePasswordSecurity(password: string): { isValid: boolean; error: string } {
+  if (!password || password.length < 8) {
+    return { isValid: false, error: "Password must be at least 8 characters long." };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, error: "Password must include at least one uppercase letter (A-Z)." };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, error: "Password must include at least one lowercase letter (a-z)." };
+  }
+  if (!/[0-9]/.test(password) && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { isValid: false, error: "Password must include at least one number or special symbol." };
+  }
+  const lower = password.toLowerCase();
+  if (lower === 'password123' || lower === 'password' || lower === '12345678') {
+    return { isValid: false, error: "This password is too common or matches the initial default password. Please choose a unique password." };
+  }
+  return { isValid: true, error: "" };
+}
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
@@ -118,18 +137,29 @@ function AgentDashboard({
   const handleChangePassword = async (e: any) => {
     e.preventDefault();
     setPasswordError("");
-    if (newPassword !== confirmPassword) return setPasswordError("Passwords do not match");
-    if (newPassword.length < 6) return setPasswordError("Password must be at least 6 characters");
+    if (newPassword !== confirmPassword) {
+      return setPasswordError("Passwords do not match");
+    }
+    const check = validatePasswordSecurity(newPassword);
+    if (!check.isValid) {
+      return setPasswordError(check.error);
+    }
     
     try {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword);
         await setDoc(doc(db, 'users', auth.currentUser.uid), { mustChangePassword: false }, { merge: true });
-        userProfile.mustChangePassword = false;
+        if (userProfile) {
+          userProfile.mustChangePassword = false;
+        }
         setForcePasswordChange(false);
       }
     } catch(err: any) {
-      setPasswordError(err.message || "Failed to update password");
+      if (err.code === 'auth/requires-recent-login') {
+        setPasswordError("Security session expired. Please log out and sign back in to change your password.");
+      } else {
+        setPasswordError(err.message || "Failed to update password");
+      }
     }
   };
 
@@ -718,7 +748,7 @@ function AgentDashboard({
                 <input
                   type="password"
                   required
-                  placeholder="At least 6 characters"
+                  placeholder="Min. 8 characters with letters & numbers"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium"
@@ -739,9 +769,26 @@ function AgentDashboard({
                 />
               </div>
 
+              {/* Password Requirements Checklist */}
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                <p className="font-bold text-gray-700 dark:text-gray-300 mb-1">Security Requirements:</p>
+                <div className="flex items-center gap-1.5">
+                  <span className={newPassword.length >= 8 ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                  <span>Minimum 8 characters</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                  <span>Uppercase & lowercase letters</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={/[0-9]/.test(newPassword) || /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword) ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                  <span>At least one number or special character</span>
+                </div>
+              </div>
+
               <button
                 type="submit"
-                className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/25 transition-all"
+                className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/25 transition-all active:scale-[0.99]"
               >
                 Set New Password & Access Dashboard
               </button>
@@ -767,8 +814,8 @@ function AgentDashboard({
 export default function Dashboard() {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const isAdmin = session?.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com' || userProfile?.isAdmin === true;
-  const isManager = isAdmin || session?.email?.toLowerCase().includes('jalal.burghol') || userProfile?.role === 'manager';
+  const isAdmin = session?.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com';
+  const isManager = isAdmin || session?.email?.toLowerCase() === 'jalal.burghol@agent.com' || (userProfile?.role === 'manager' && session?.email?.toLowerCase() === 'jalal.burghol@agent.com');
   const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -776,6 +823,16 @@ export default function Dashboard() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+
+  useEffect(() => {
+    if (lockoutTimer <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutTimer(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutTimer]);
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -811,18 +868,24 @@ export default function Dashboard() {
     e.preventDefault();
     setForgotError("");
     setForgotSuccess("");
-    if (!forgotEmail.trim()) {
+    const cleanForgotEmail = forgotEmail.trim().toLowerCase();
+    if (!cleanForgotEmail) {
       setForgotError("Please enter your email address");
       return;
     }
     setForgotLoading(true);
     try {
-      await sendPasswordResetEmail(auth, forgotEmail.trim());
-      setForgotSuccess("Password reset instructions sent to your email. Please check your inbox or spam folder.");
+      await sendPasswordResetEmail(auth, cleanForgotEmail);
     } catch (err: any) {
-      setForgotError(err.message || "Failed to send reset email");
+      if (err.code === 'auth/too-many-requests') {
+        setForgotError("Too many password reset requests. Please wait a few minutes before trying again.");
+        setForgotLoading(false);
+        return;
+      }
+      console.warn("Password reset notice:", err.code);
     } finally {
       setForgotLoading(false);
+      setForgotSuccess("If an account exists with this email address, password reset instructions have been sent. Please check your inbox and spam folder.");
     }
   };
 
@@ -859,8 +922,9 @@ export default function Dashboard() {
           setSavingProfile(false);
           return;
         }
-        if (newProfilePassword.length < 6) {
-          setProfileError("Password must be at least 6 characters");
+        const check = validatePasswordSecurity(newProfilePassword);
+        if (!check.isValid) {
+          setProfileError(check.error);
           setSavingProfile(false);
           return;
         }
@@ -1029,11 +1093,11 @@ export default function Dashboard() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setSession(user);
       if (user) {
-        const emailLower = user.email?.toLowerCase() || '';
+        const emailLower = user.email?.toLowerCase().trim() || '';
         const isMohammed = emailLower === 'mohammed.dlshad0@gmail.com';
-        const isJalal = emailLower.includes('jalal.burghol');
-        const isYounis = emailLower.includes('younis.kamal');
-        const isAnkido = emailLower.includes('ankido.buya');
+        const isJalal = emailLower === 'jalal.burghol@agent.com';
+        const isYounis = emailLower === 'younis.kamal@agent.com';
+        const isAnkido = emailLower === 'ankido.buya@agent.com';
         const isAgent = emailLower.endsWith('@agent.com');
 
         // Instant optimistic role identification
@@ -1142,12 +1206,39 @@ export default function Dashboard() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockoutTimer > 0) {
+      setAuthError(`Too many failed attempts. Please wait ${lockoutTimer} seconds before trying again.`);
+      return;
+    }
     setAuthError('');
     setLoginLoading(true);
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
+      setLoginAttempts(0);
     } catch (err: any) {
-      setAuthError(err.message || 'Invalid email or password');
+      const nextAttempts = loginAttempts + 1;
+      setLoginAttempts(nextAttempts);
+
+      if (nextAttempts >= 5) {
+        setLockoutTimer(30);
+        setAuthError("Too many failed login attempts. Access temporarily locked for 30 seconds for security.");
+      } else {
+        const code = err.code || '';
+        if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/invalid-email') {
+          setAuthError("Invalid email or password. Please verify your credentials and try again.");
+        } else if (code === 'auth/too-many-requests') {
+          setLockoutTimer(60);
+          setAuthError("Unusual activity detected. Access temporarily restricted. Please reset your password or try again in a few minutes.");
+        } else if (code === 'auth/user-disabled') {
+          setAuthError("This user account has been deactivated. Please contact your system administrator.");
+        } else if (code === 'auth/network-request-failed') {
+          setAuthError("Network connection failed. Please check your internet connection.");
+        } else {
+          setAuthError("Sign in failed. Please verify your email and password.");
+        }
+      }
     } finally {
       setLoginLoading(false);
     }
@@ -1556,12 +1647,22 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {loginAttempts >= 3 && loginAttempts < 5 && lockoutTimer === 0 && (
+                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/80 text-amber-800 dark:text-amber-300 text-xs font-semibold text-center">
+                  ⚠️ {5 - loginAttempts} attempt(s) remaining before temporary account lockout.
+                </div>
+              )}
+
               <button 
                 type="submit" 
-                disabled={loginLoading}
-                className="w-full py-4 rounded-2xl text-sm font-black text-white transition-all mt-6 bg-gradient-to-r from-[#1C6B53] via-[#165a46] to-[#0F3A2E] hover:from-[#155a45] hover:to-[#0D2D24] shadow-lg shadow-[#1C6B53]/25 hover:shadow-xl hover:shadow-[#1C6B53]/35 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50"
+                disabled={loginLoading || lockoutTimer > 0}
+                className="w-full py-4 rounded-2xl text-sm font-black text-white transition-all mt-6 bg-gradient-to-r from-[#1C6B53] via-[#165a46] to-[#0F3A2E] hover:from-[#155a45] hover:to-[#0D2D24] shadow-lg shadow-[#1C6B53]/25 hover:shadow-xl hover:shadow-[#1C6B53]/35 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                <span>{loginLoading ? 'Signing In...' : 'Sign In'}</span>
+                <span>
+                  {lockoutTimer > 0 
+                    ? `Locked (${lockoutTimer}s)` 
+                    : (loginLoading ? 'Signing In...' : 'Sign In')}
+                </span>
                 <ArrowRight size={16} />
               </button>
             </form>

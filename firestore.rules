@@ -1,0 +1,80 @@
+﻿rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email == 'mohammed.dlshad0@gmail.com';
+    }
+
+    function isManager() {
+      return isAdmin() || (isAuthenticated() && request.auth.token.email == 'jalal.burghol@agent.com');
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Allow users to create their own record or Admin to create
+      allow create: if isAuthenticated() && (isUser(userId) || isAdmin());
+      // Users can update their own profile (name, photo, password flag), BUT cannot tamper with role, team, or admin status
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isUser(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'team']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Team members directory
+    match /team_members/{memberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        isManager() || 
+        request.auth.token.email == 'younis.kamal@agent.com' || 
+        request.auth.token.email == 'ankido.buya@agent.com'
+      );
+    }
+
+    // KPI Columns configuration (Super Admin only can edit KPIs)
+    match /columns_config/{teamId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Younis Kamal metrics
+    match /younis_metrics/{metricId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        isManager() || 
+        request.auth.token.email == 'younis.kamal@agent.com'
+      );
+    }
+
+    // Ankido Buya metrics
+    match /ankido_metrics/{metricId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        isManager() || 
+        request.auth.token.email == 'ankido.buya@agent.com'
+      );
+    }
+
+    // Mohammed Dlshad metrics
+    match /mohammed_metrics/{metricId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Deny all other unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
