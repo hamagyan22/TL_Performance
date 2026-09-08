@@ -800,41 +800,53 @@ export default function Dashboard() {
     return <div className="min-h-screen flex items-center justify-center transition-colors dark:bg-gray-900"><div className="text-gray-500 dark:text-gray-400 font-medium">Loading...</div></div>;
   }
 
-  if (!session) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center p-4 transition-colors bg-[#F9F8F4] dark:bg-gray-900`}>
-        <div className={`max-w-md w-full p-8 rounded-xl shadow-lg border bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700`}>
-           <div className="flex justify-end mb-4">
-             <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition">
-               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-             </button>
-           </div>
-           
-           <h2 className={`text-2xl font-bold text-center mb-6 tracking-tight text-gray-900 dark:text-white`}>
-             Team Lead Login
-           </h2>
-           
-           {authError && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm rounded-md">{authError}</div>}
-           
-           <form onSubmit={handleLogin} className="space-y-4">
-             <div>
-               <label className={`block text-xs font-semibold uppercase tracking-wide mb-1.5 text-gray-600 dark:text-gray-400`}>Email</label>
-               <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className={`w-full px-4 py-2 border rounded-lg focus:outline-none transition-colors bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:border-[#1C6B53] dark:focus:border-emerald-500`} />
-             </div>
-             <div>
-               <label className={`block text-xs font-semibold uppercase tracking-wide mb-1.5 text-gray-600 dark:text-gray-400`}>Password</label>
-               <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className={`w-full px-4 py-2 border rounded-lg focus:outline-none transition-colors bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:border-[#1C6B53] dark:focus:border-emerald-500`} />
-             </div>
-             <button type="submit" className={`w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-colors mt-2 bg-[#1C6B53] dark:bg-emerald-600 hover:bg-[#155a45] dark:hover:bg-emerald-700`}>
-               Sign In
-             </button>
-           </form>
+      if (!session) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4 transition-colors bg-gradient-to-br from-[#E8F3EF] to-[#F9F8F4] dark:from-gray-900 dark:to-gray-800">
+          <div className="w-full max-w-md p-8 sm:p-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-white/50 dark:border-gray-700/50 relative overflow-hidden">
+            <div className="absolute top-6 right-6">
+               <button onClick={toggleDarkMode} className="p-2.5 rounded-full bg-white/50 dark:bg-gray-700/50 hover:bg-white dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all shadow-sm backdrop-blur-sm">
+                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+               </button>
+            </div>
+            
+            <div className="flex flex-col items-center mb-8 mt-4">
+              <div className="w-24 h-24 mb-6 rounded-2xl bg-white dark:bg-white p-2 shadow-sm flex items-center justify-center border border-gray-100 dark:border-gray-700">
+                <img src="/logo.webp" alt="FIB Logo" className="w-full h-full object-contain" />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-center tracking-tight text-gray-900 dark:text-white leading-tight">
+                Team Leader & <br /> Agent Dashboard
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 font-medium text-center">
+                Welcome back. Please sign in to continue.
+              </p>
+            </div>
+            
+            {authError && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-600 dark:text-red-400 text-sm font-medium rounded-r-lg">
+                {authError}
+              </div>
+            )}
+            
+            <form onSubmit={handleLogin} className="space-y-5">
+               <div>
+                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-gray-400 ml-1">Email Address</label>
+                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700 rounded-xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-[#1C6B53] focus:ring-4 focus:ring-[#1C6B53]/10" placeholder="name@agent.com" />
+               </div>
+               <div>
+                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-gray-400 ml-1">Password</label>
+                 <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700 rounded-xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-[#1C6B53] focus:ring-4 focus:ring-[#1C6B53]/10" placeholder="••••••••" />
+               </div>
+               <button type="submit" className="w-full py-4 rounded-xl text-sm font-bold text-white transition-all mt-6 bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/20 hover:shadow-[#1C6B53]/40 transform hover:-translate-y-0.5 active:translate-y-0">
+                 Sign In
+               </button>
+            </form>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (userProfile?.role === 'agent') {
+    if (userProfile?.role === 'agent') {
     return <AgentDashboard userProfile={userProfile} onLogout={handleLogout} columnsMap={columnsMap} />;
   }
 
