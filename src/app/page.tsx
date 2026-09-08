@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseClient";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "firebase/auth";
-import { collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck } from "lucide-react";
+import { collection, query, where, getDocs, getDoc, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
+import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
 const TEAMS: TeamName[] = ['Younis Kamal Team', 'Ankido Buya Team', 'Mohammed Dlshad Team'];
@@ -61,22 +61,53 @@ function toTitleCase(str: string) {
 }
 
 
-function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: any, onLogout: () => void, columnsMap: any }) {
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+function AgentDashboard({ 
+  userProfile, 
+  onLogout, 
+  columnsMap, 
+  previewMode = false, 
+  allMembers = [], 
+  onExitPreview 
+}: { 
+  userProfile: any; 
+  onLogout: () => void; 
+  columnsMap: any; 
+  previewMode?: boolean; 
+  allMembers?: any[]; 
+  onExitPreview?: () => void; 
+}) {
+  const currentMonth = MONTHS[new Date().getMonth()];
+  const currentYear = new Date().getFullYear().toString();
+
+  const initialAgent = (previewMode && allMembers && allMembers.length > 0)
+    ? allMembers[0]
+    : userProfile;
+  const [currentAgent, setCurrentAgent] = useState<any>(initialAgent);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<any[]>([]);
-  const [selectedYear, setSelectedYear] = useState("2026");
-  const [selectedMonth, setSelectedMonth] = useState("AUG");
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   
   const [memberDoc, setMemberDoc] = useState<any>(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
   const [forcePasswordChange, setForcePasswordChange] = useState(
-    userProfile.mustChangePassword === true || userProfile.mustChangePassword === undefined
+    previewMode ? false : (userProfile?.mustChangePassword === true || userProfile?.mustChangePassword === undefined)
   );
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+
+  useEffect(() => {
+    if (previewMode && allMembers && allMembers.length > 0 && !currentAgent?.agent_name) {
+      setCurrentAgent(allMembers[0]);
+    } else if (userProfile && !previewMode) {
+      setCurrentAgent(userProfile);
+    }
+  }, [userProfile, previewMode, allMembers]);
 
   const handleChangePassword = async (e: any) => {
     e.preventDefault();
@@ -96,11 +127,10 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
     }
   };
 
-  
-  const teamCols = columnsMap[userProfile.team] || [];
+  const teamCols = columnsMap[currentAgent?.team] || [];
   const tableName =
-    userProfile.team === 'Younis Kamal Team' ? 'younis_metrics' :
-    userProfile.team === 'Ankido Buya Team' ? 'ankido_metrics' :
+    currentAgent?.team === 'Younis Kamal Team' ? 'younis_metrics' :
+    currentAgent?.team === 'Ankido Buya Team' ? 'ankido_metrics' :
     'mohammed_metrics';
 
   useEffect(() => {
@@ -115,10 +145,11 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
   }, [showEditProfile, forcePasswordChange]);
 
   useEffect(() => {
+    if (!currentAgent?.agent_name) return;
     setLoading(true);
     const q = query(
       collection(db, tableName),
-      where('agent_name', '==', userProfile.agent_name),
+      where('agent_name', '==', currentAgent.agent_name),
       where('year', '==', selectedYear)
     );
     const unsubMetrics = onSnapshot(q, (snap) => {
@@ -131,8 +162,8 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
 
     const mQ = query(
       collection(db, 'team_members'),
-      where('agent_name', '==', userProfile.agent_name),
-      where('team', '==', userProfile.team)
+      where('agent_name', '==', currentAgent.agent_name),
+      where('team', '==', currentAgent.team)
     );
     const unsubMember = onSnapshot(mQ, (mSnap) => {
       if (!mSnap.empty) {
@@ -140,6 +171,10 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
         setMemberDoc(mData);
         setEditDisplayName(mData.display_name || mData.agent_name);
         setEditPhotoUrl(mData.photo_url || "");
+      } else {
+        setMemberDoc(null);
+        setEditDisplayName(currentAgent.name || currentAgent.agent_name);
+        setEditPhotoUrl("");
       }
     }, (err) => {
       console.error(err);
@@ -149,7 +184,7 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
       unsubMetrics();
       unsubMember();
     };
-  }, [selectedYear, userProfile, tableName]);
+  }, [selectedYear, currentAgent, tableName]);
 
   const handleSaveProfile = async () => {
     if(!memberDoc) return;
@@ -254,45 +289,125 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
   return (
     <div className="min-h-screen p-6 md:p-10 font-sans bg-[#F9F8F4] dark:bg-gray-900 transition-colors">
       <div className="max-w-[1400px] mx-auto">
+
+        {/* Executive Preview Toolbar (When Manager/Admin is inspecting an agent) */}
+        {previewMode && (
+          <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-[#1C6B53] to-emerald-900 text-white rounded-3xl shadow-xl border border-emerald-400/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-inner">
+                <Eye size={22} className="text-emerald-200" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black tracking-widest uppercase text-emerald-200">Executive Agent View</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm">Live Agent Preview</span>
+                </div>
+                <p className="text-xs text-emerald-100/80 font-medium mt-0.5">Switch between team members to inspect their actual scorecard & KPIs</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              {/* Modern Agent Dropdown */}
+              <div className="relative flex-1 md:w-80">
+                <select
+                  value={currentAgent?.agent_name || ""}
+                  onChange={(e) => {
+                    const found = allMembers.find(m => m.agent_name === e.target.value);
+                    if (found) {
+                      setCurrentAgent({
+                        role: 'agent',
+                        agent_name: found.agent_name,
+                        team: found.team,
+                        name: found.agent_name,
+                        photo_url: found.photo_url || ""
+                      });
+                    }
+                  }}
+                  className="w-full pl-4 pr-10 py-2.5 bg-white text-gray-900 dark:bg-gray-800 dark:text-white border border-white/20 rounded-2xl text-xs font-bold outline-none cursor-pointer shadow-md appearance-none"
+                >
+                  {allMembers.map(m => (
+                    <option key={m.id} value={m.agent_name} className="text-gray-900 dark:text-white">
+                      {m.agent_name} — {m.team?.replace(' Team', '')}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+              </div>
+
+              {/* Exit Preview Button */}
+              <button
+                onClick={onExitPreview}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold text-[#1C6B53] bg-white hover:bg-emerald-50 shadow-md transition-all shrink-0 active:scale-95"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Dashboard</span>
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Header with Profile */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-5">
             <div className="relative group">
-              <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center">
+              <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden border-4 border-white dark:border-gray-800 shadow-md flex items-center justify-center">
                 {memberDoc?.photo_url ? (
                   <img src={memberDoc.photo_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <Users size={32} className="text-gray-400" />
                 )}
               </div>
-              <button onClick={() => setShowEditProfile(true)} className="absolute bottom-0 right-0 p-1.5 bg-[#1C6B53] text-white rounded-full shadow-md hover:bg-emerald-700 transition">
-                <Edit2 size={12} />
-              </button>
+              {!previewMode && (
+                <button onClick={() => setShowEditProfile(true)} className="absolute bottom-0 right-0 p-1.5 bg-[#1C6B53] text-white rounded-full shadow-md hover:bg-emerald-700 transition">
+                  <Edit2 size={12} />
+                </button>
+              )}
             </div>
             <div>
-              <p className="text-gray-400 dark:text-gray-500 text-xs font-semibold tracking-widest mb-1 uppercase">Welcome</p>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                {memberDoc?.display_name || userProfile.agent_name}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-gray-400 dark:text-gray-500 text-xs font-semibold tracking-wide">
+                  {previewMode ? 'Viewing Performance For' : 'Welcome Back'}
+                </span>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50">
+                  {currentAgent?.team}
+                </span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+                {memberDoc?.display_name || currentAgent?.agent_name || currentAgent?.name}
               </h1>
             </div>
           </div>
-          <button onClick={onLogout} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md transition bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-            <LogOut size={16} /> Logout
-          </button>
+
+          <div className="flex items-center gap-3">
+            {previewMode ? (
+              <button 
+                onClick={onExitPreview} 
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] rounded-xl transition shadow-md shadow-[#1C6B53]/20"
+              >
+                <ArrowLeft size={14} /> Exit Agent View
+              </button>
+            ) : (
+              <button 
+                onClick={onLogout} 
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+              >
+                <LogOut size={15} /> Logout
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-gray-500">Loading your performance data...</div>
+          <div className="p-12 text-center text-gray-500 font-medium">Loading performance data...</div>
         ) : (
           <div className="space-y-5">
 
-            {/* Year Performance — refined dark card */}
-            <div className="bg-[#0f2d24] rounded-2xl p-6 shadow-md">
+            {/* Year Performance Overview */}
+            <div className="bg-[#0f2d24] rounded-3xl p-6 sm:p-7 shadow-lg border border-emerald-900/40">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <p className="text-[#4ade80]/70 text-[10px] font-semibold tracking-[0.2em] uppercase mb-1">Year Performance</p>
-                  <p className="text-white text-2xl font-bold tracking-tight">{selectedYear} Overview</p>
+                  <p className="text-[#4ade80]/70 text-[10px] font-bold tracking-[0.2em] uppercase mb-1">Year Performance</p>
+                  <p className="text-white text-2xl font-black tracking-tight">{selectedYear} Overview</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
                   <Users size={18} className="text-white/60" />
@@ -302,8 +417,8 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
                 {teamCols.map((col: any) => {
                   const yearAvg = avgCols(months, col);
                   return (
-                    <div key={col.id} className="bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl p-4 transition">
-                      <p className="text-white/40 text-[9px] font-semibold tracking-[0.15em] uppercase mb-2">{col.label}</p>
+                    <div key={col.id} className="bg-white/5 hover:bg-white/8 border border-white/10 rounded-2xl p-4 transition">
+                      <p className="text-white/60 text-[10px] font-bold tracking-wide mb-2">{toTitleCase(col.label)}</p>
                       <p className="text-white text-2xl font-bold leading-none">{yearAvg}</p>
                     </div>
                   );
@@ -312,14 +427,14 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
             </div>
 
             {/* Month / Period Selector */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="flex items-center px-4 overflow-x-auto scrollbar-hide">
-                {/* Year */}
-                <div className="relative mr-4 shrink-0">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden p-2">
+              <div className="flex items-center px-2 overflow-x-auto scrollbar-hide gap-1.5">
+                {/* Modern Year Select */}
+                <div className="relative mr-2 shrink-0">
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
-                    className="appearance-none pr-6 pl-2 py-3 text-xs font-bold uppercase tracking-widest bg-transparent text-gray-700 dark:text-gray-300 border-0 outline-none cursor-pointer"
+                    className="appearance-none pl-3 pr-7 py-2 text-xs font-bold rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 outline-none cursor-pointer shadow-xs hover:bg-emerald-100/50 transition-colors"
                   >
                     <option value="2026">2026</option>
                     <option value="2027">2027</option>
@@ -327,37 +442,37 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
                     <option value="2029">2029</option>
                     <option value="2030">2030</option>
                   </select>
-                  <ChevronDown size={11} className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#1C6B53] dark:text-emerald-400" />
                 </div>
 
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mr-2 shrink-0" />
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mr-1 shrink-0" />
 
                 {/* Month tabs */}
                 {months.map(m => (
                   <button
                     key={m}
                     onClick={() => setSelectedMonth(m)}
-                    className={`shrink-0 px-3 py-3 text-xs font-semibold tracking-widest transition border-b-2 ${
+                    className={`shrink-0 px-3 py-1.5 text-xs font-bold rounded-xl transition ${
                       selectedMonth === m
-                        ? 'text-[#1C6B53] border-[#1C6B53]'
-                        : 'text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-200'
+                        ? 'bg-[#1C6B53] text-white shadow-sm shadow-[#1C6B53]/25'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                     }`}
                   >
                     {m}
                   </button>
                 ))}
 
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-2 shrink-0" />
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
                 {/* Period tabs */}
                 {PERIODS.map(p => (
                   <button
                     key={p.label}
                     onClick={() => setSelectedMonth(p.label)}
-                    className={`shrink-0 px-3 py-3 text-[10px] font-semibold tracking-widest transition border-b-2 whitespace-nowrap ${
+                    className={`shrink-0 px-2.5 py-1.5 text-[11px] font-bold rounded-xl transition whitespace-nowrap ${
                       selectedMonth === p.label
-                        ? 'text-[#1C6B53] border-[#1C6B53]'
-                        : 'text-gray-400 border-transparent hover:text-gray-600 dark:hover:text-gray-200'
+                        ? 'bg-[#1C6B53] text-white shadow-sm shadow-[#1C6B53]/25'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
                     }`}
                   >
                     {p.label}
@@ -384,14 +499,14 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
                     const a = accents[i % accents.length];
                     const val = getDisplayVal(col);
                     return (
-                      <div key={col.id} className={`bg-white dark:bg-gray-800 border-l-4 ${a.border} rounded-xl p-5 shadow-sm hover:shadow-md transition flex flex-col gap-3`}>
+                      <div key={col.id} className={`bg-white dark:bg-gray-800 border-l-4 ${a.border} rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col gap-3`}>
                         <div className="flex items-center gap-2">
-                          <div className={`w-1.5 h-1.5 rounded-full ${a.dot}`} />
-                          <span className={`text-[10px] font-bold tracking-[0.15em] uppercase ${a.label}`}>{col.label}</span>
+                          <div className={`w-2 h-2 rounded-full ${a.dot}`} />
+                          <span className={`text-xs font-bold tracking-wide ${a.label}`}>{toTitleCase(col.label)}</span>
                         </div>
                         <div>
-                          <span className={`text-3xl font-black ${a.val} leading-none`}>{val}</span>
-                          <p className="text-[10px] text-gray-400 mt-1 font-medium">{selectedMonth} · {selectedYear}</p>
+                          <span className={`text-3xl font-black ${a.val} leading-none tracking-tight`}>{val}</span>
+                          <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{selectedMonth} · {selectedYear}</p>
                         </div>
                       </div>
                     );
@@ -515,19 +630,26 @@ function AgentDashboard({ userProfile, onLogout, columnsMap }: { userProfile: an
 export default function Dashboard() {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const isAdmin = session?.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com' || userProfile?.isAdmin === true;
+  const isManager = isAdmin || session?.email?.toLowerCase().includes('jalal.burghol') || userProfile?.role === 'manager';
   const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("JAN");
-  const [selectedYear, setSelectedYear] = useState("2026");
+  const currentMonth = MONTHS[new Date().getMonth()];
+  const currentYear = new Date().getFullYear().toString();
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedTeam, setSelectedTeam] = useState<TeamName>('Younis Kamal Team');
   const [rows, setRows] = useState<any[]>([]);
+  const [showAgentPreview, setShowAgentPreview] = useState(false);
 
   const [columnsMap, setColumnsMap] = useState<Record<string, ColumnConfig[]>>({});
 
@@ -770,54 +892,90 @@ export default function Dashboard() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setSession(user);
       if (user) {
-        // Fetch user profile to check role
-        import('firebase/firestore').then(async ({ getDoc, doc, setDoc }) => {
-           try {
-             const userDoc = await getDoc(doc(db, 'users', user.uid));
-             const isMohammed = user.email?.toLowerCase() === 'mohammed.dlshad0@gmail.com';
-             const isJalal = user.email?.toLowerCase() === 'jalal.burghol@fib.iq';
+        const emailLower = user.email?.toLowerCase() || '';
+        const isMohammed = emailLower === 'mohammed.dlshad0@gmail.com';
+        const isJalal = emailLower.includes('jalal.burghol');
+        const isYounis = emailLower.includes('younis.kamal');
+        const isAnkido = emailLower.includes('ankido.buya');
+        const isAgent = emailLower.endsWith('@agent.com');
 
-             if (isMohammed) {
-               const adminProfile: any = {
-                 role: 'manager',
-                 team: 'Mohammed Dlshad Team',
-                 name: 'Mohammed Dlshad',
-                 email: user.email,
-                 mustChangePassword: false,
-                 ...(userDoc.exists() ? userDoc.data() : {})
-               };
-               adminProfile.role = 'manager';
-               adminProfile.team = adminProfile.team || 'Mohammed Dlshad Team';
-               setUserProfile(adminProfile);
-               setSelectedTeam('Mohammed Dlshad Team');
-               await setDoc(doc(db, 'users', user.uid), adminProfile, { merge: true });
-             } else if (isJalal) {
-               const jalalProfile: any = {
-                 role: 'manager',
-                 team: 'All',
-                 name: 'Jalal Burghol',
-                 email: user.email,
-                 mustChangePassword: false,
-                 ...(userDoc.exists() ? userDoc.data() : {})
-               };
-               jalalProfile.role = 'manager';
-               setUserProfile(jalalProfile);
-               await setDoc(doc(db, 'users', user.uid), jalalProfile, { merge: true });
-             } else if (userDoc.exists()) {
-               const data = userDoc.data();
-               setUserProfile(data);
-               if (data.role === 'tl' && data.team) {
-                 setSelectedTeam(data.team as TeamName);
-               }
-             } else {
-               setUserProfile({ role: 'tl' });
-             }
-           } catch(e) { 
-             console.error(e); 
-             setUserProfile({ role: 'tl' }); 
-           }
-           setAuthLoading(false);
-        });
+        // Instant optimistic role identification
+        if (isMohammed) {
+          const adminProfile: any = {
+            role: 'manager',
+            isAdmin: true,
+            team: 'Mohammed Dlshad Team',
+            name: 'Mohammed Dlshad',
+            email: user.email,
+            mustChangePassword: false,
+          };
+          setUserProfile(adminProfile);
+          setSelectedTeam('Mohammed Dlshad Team');
+          setAuthLoading(false);
+          setDoc(doc(db, 'users', user.uid), adminProfile, { merge: true }).catch(console.error);
+          return;
+        }
+
+        if (isJalal) {
+          const jalalProfile: any = {
+            role: 'manager',
+            isAdmin: false,
+            team: 'All',
+            name: 'Jalal Burghol',
+            email: user.email,
+            mustChangePassword: false,
+          };
+          setUserProfile(jalalProfile);
+          setAuthLoading(false);
+          setDoc(doc(db, 'users', user.uid), jalalProfile, { merge: true }).catch(console.error);
+          return;
+        }
+
+        if (isYounis) {
+          const tlProfile: any = {
+            role: 'tl',
+            team: 'Younis Kamal Team',
+            name: 'Younis Kamal',
+            email: user.email,
+          };
+          setUserProfile(tlProfile);
+          setSelectedTeam('Younis Kamal Team');
+          setAuthLoading(false);
+          setDoc(doc(db, 'users', user.uid), tlProfile, { merge: true }).catch(console.error);
+          return;
+        }
+
+        if (isAnkido) {
+          const tlProfile: any = {
+            role: 'tl',
+            team: 'Ankido Buya Team',
+            name: 'Ankido Buya',
+            email: user.email,
+          };
+          setUserProfile(tlProfile);
+          setSelectedTeam('Ankido Buya Team');
+          setAuthLoading(false);
+          setDoc(doc(db, 'users', user.uid), tlProfile, { merge: true }).catch(console.error);
+          return;
+        }
+
+        // Direct fetch for other users / agents
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setUserProfile(data);
+            if (data.role === 'tl' && data.team) {
+              setSelectedTeam(data.team as TeamName);
+            }
+          } else {
+            setUserProfile({ role: isAgent ? 'agent' : 'tl' });
+          }
+        } catch(e) {
+          console.error(e);
+          setUserProfile({ role: isAgent ? 'agent' : 'tl' });
+        }
+        setAuthLoading(false);
       } else {
         setUserProfile(null);
         setAuthLoading(false);
@@ -848,10 +1006,13 @@ export default function Dashboard() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setLoginLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err: any) {
-      setAuthError(err.message);
+      setAuthError(err.message || 'Invalid email or password');
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -884,7 +1045,10 @@ export default function Dashboard() {
       roster.sort((a, b) => (a.agent_name > b.agent_name ? 1 : -1));
 
       const metricsSnap = await getDocs(query(collection(db, tableName), where('team', '==', selectedTeam), where('year', '==', selectedYear)));
-      const allYearData = metricsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      const rosterNames = new Set(roster.map(d => d.agent_name));
+      const allYearData = metricsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((d: any) => rosterNames.has(d.agent_name)) as any[];
       setYearMetrics(allYearData);
       
       let metrics = [...allYearData];
@@ -991,9 +1155,9 @@ export default function Dashboard() {
   };
 
   const openManageModal = () => {
-    const targetTeam = (userProfile?.role === 'tl' && userProfile?.team) ? userProfile.team : selectedTeam;
-    setManageColsTeam(userProfile?.role === 'manager' ? 'ALL' : targetTeam);
-    setNewMemberTeam(targetTeam);
+    if (!isAdmin) return;
+    setManageColsTeam('ALL');
+    setNewMemberTeam(selectedTeam);
     fetchAllMembers();
     setShowManageMembers(true);
   };
@@ -1155,69 +1319,129 @@ export default function Dashboard() {
     return <div className="min-h-screen flex items-center justify-center transition-colors dark:bg-gray-900"><div className="text-gray-500 dark:text-gray-400 font-medium">Loading...</div></div>;
   }
 
-      if (!session) {
+    if (!session) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 transition-colors bg-gradient-to-br from-[#E8F3EF] to-[#F9F8F4] dark:from-gray-900 dark:to-gray-800 relative">
-          <div className="w-full max-w-md p-8 sm:p-10 bg-white/85 dark:bg-gray-800/85 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] border border-white/60 dark:border-gray-700/60 relative overflow-hidden">
-            <div className="absolute top-6 right-6">
-               <button onClick={toggleDarkMode} className="p-2.5 rounded-full bg-white/60 dark:bg-gray-700/60 hover:bg-white dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all shadow-sm backdrop-blur-sm">
-                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-               </button>
-            </div>
-            
-            <div className="flex flex-col items-center mb-8 mt-2">
-              <div className="h-16 mb-4 flex items-center justify-center">
-                <img src="/logo.webp" alt="FIB Logo" className="h-14 sm:h-16 w-auto object-contain drop-shadow-sm" />
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] font-bold tracking-wide uppercase mb-3">
+        <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 transition-colors bg-[#F4F7F5] dark:bg-[#07130F] relative overflow-hidden font-sans">
+          {/* Ambient glowing radial orbs */}
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-400/20 dark:bg-emerald-600/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#1C6B53]/25 dark:bg-[#1C6B53]/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+          <div className="w-full max-w-[440px] p-8 sm:p-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 relative z-10">
+            {/* Top Bar with Badge and Dark Mode Toggle */}
+            <div className="flex justify-between items-center mb-7">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/70 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] font-bold tracking-wider uppercase">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Performance Portal</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-center tracking-tight text-gray-900 dark:text-white leading-tight">
+              <button 
+                onClick={toggleDarkMode} 
+                className="w-10 h-10 rounded-2xl bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200/80 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all flex items-center justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-sm"
+                title="Toggle Dark Mode"
+              >
+                {isDarkMode ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
+              </button>
+            </div>
+            
+            {/* Logo & Heading */}
+            <div className="flex flex-col items-center text-center mb-8">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-gray-800 p-3.5 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50 shadow-sm mb-4">
+                <img src="/logo.webp" alt="FIB Logo" className="w-full h-full object-contain drop-shadow-sm" />
+              </div>
+              <h2 className="text-2xl sm:text-[26px] font-black tracking-tight text-gray-900 dark:text-white leading-tight">
                 Team Leader & Agent Dashboard
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium text-center">
-                Welcome Back. Please Sign In To Continue.
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
+                Welcome Back. Please Sign In To Access Your Scorecards.
               </p>
             </div>
             
             {authError && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-600 dark:text-red-400 text-sm font-medium rounded-r-lg">
-                {authError}
+              <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-2xl flex items-center gap-2.5">
+                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                <span>{authError}</span>
               </div>
             )}
             
-            <form onSubmit={handleLogin} className="space-y-5">
-               <div>
-                 <label className="block text-[11px] font-bold uppercase tracking-wider mb-2 text-gray-500 dark:text-gray-400 ml-1">Email Address</label>
-                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700 rounded-xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-[#1C6B53] focus:ring-4 focus:ring-[#1C6B53]/10" placeholder="name@agent.com" />
-               </div>
-               <div>
-                 <div className="flex justify-between items-center mb-2 ml-1">
-                   <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Password</label>
-                   <button 
-                     type="button" 
-                     onClick={() => { 
-                       setForgotEmail(email); 
-                       setForgotError(''); 
-                       setForgotSuccess(''); 
-                       setShowForgotModal(true); 
-                     }} 
-                     className="text-xs font-semibold text-[#1C6B53] dark:text-emerald-400 hover:text-[#155a45] hover:underline transition"
-                   >
-                     Forgot Password?
-                   </button>
-                 </div>
-                 <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/80 dark:border-gray-700 rounded-xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-[#1C6B53] focus:ring-4 focus:ring-[#1C6B53]/10" placeholder="••••••••" />
-               </div>
-               <button type="submit" className="w-full py-4 rounded-xl text-sm font-bold text-white transition-all mt-6 bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/20 hover:shadow-[#1C6B53]/40 transform hover:-translate-y-0.5 active:translate-y-0">
-                 Sign In
-               </button>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 ml-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                    <Mail size={16} />
+                  </div>
+                  <input 
+                    type="email" 
+                    required 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    className="w-full pl-10 pr-4 py-3.5 bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-sm font-medium placeholder:text-gray-400" 
+                    placeholder="name@agent.com" 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5 ml-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    Password
+                  </label>
+                  <button 
+                    type="button" 
+                    onClick={() => { 
+                      setForgotEmail(email); 
+                      setForgotError(''); 
+                      setForgotSuccess(''); 
+                      setShowForgotModal(true); 
+                    }} 
+                    className="text-xs font-semibold text-[#1C6B53] dark:text-emerald-400 hover:underline transition"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={16} />
+                  </div>
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    required 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full pl-10 pr-11 py-3.5 bg-gray-50/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none transition-all text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-800 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-sm font-medium placeholder:text-gray-400" 
+                    placeholder="••••••••" 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loginLoading}
+                className="w-full py-4 rounded-2xl text-sm font-black text-white transition-all mt-6 bg-gradient-to-r from-[#1C6B53] via-[#165a46] to-[#0F3A2E] hover:from-[#155a45] hover:to-[#0D2D24] shadow-lg shadow-[#1C6B53]/25 hover:shadow-xl hover:shadow-[#1C6B53]/35 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <span>{loginLoading ? 'Signing In...' : 'Sign In'}</span>
+                <ArrowRight size={16} />
+              </button>
             </form>
+
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800/80 flex items-center justify-center gap-2 text-gray-400 dark:text-gray-500 text-[11px] font-medium">
+              <ShieldCheck size={14} className="text-[#1C6B53] dark:text-emerald-400" />
+              <span>Protected By FIB Enterprise Security</span>
+            </div>
           </div>
 
           {/* Forgot Password Modal */}
           {showForgotModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
               <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 max-w-md w-full border border-gray-100 dark:border-gray-800 relative">
                 <div className="flex justify-between items-start mb-5">
                   <div>
@@ -1281,100 +1505,130 @@ export default function Dashboard() {
     }
 
     if (userProfile?.role === 'agent') {
-    return <AgentDashboard userProfile={userProfile} onLogout={handleLogout} columnsMap={columnsMap} />;
-  }
+      return <AgentDashboard userProfile={userProfile} onLogout={handleLogout} columnsMap={columnsMap} />;
+    }
 
-  
-  const activeTeams = userProfile?.role === 'tl' && userProfile?.team 
-    ? TEAMS.filter(t => t === userProfile.team) 
-    : TEAMS;
+    if (showAgentPreview) {
+      return (
+        <AgentDashboard 
+          userProfile={userProfile} 
+          onLogout={handleLogout} 
+          columnsMap={columnsMap} 
+          previewMode={true} 
+          allMembers={allMembers} 
+          onExitPreview={() => setShowAgentPreview(false)} 
+        />
+      );
+    }
 
-  const displayedMembers = userProfile?.role === 'tl' && userProfile?.team
-    ? allMembers.filter(m => m.team === userProfile.team)
-    : allMembers;
+    const activeTeams = userProfile?.role === 'tl' && userProfile?.team 
+      ? TEAMS.filter(t => t === userProfile.team) 
+      : TEAMS;
 
-  const activeCols = columnsMap[selectedTeam] || [];
-  const manageCols = manageColsTeam === 'ALL'
-    ? (columnsMap['Ankido Buya Team'] || columnsMap['Younis Kamal Team'] || columnsMap[selectedTeam] || [])
-    : (columnsMap[manageColsTeam] || []);
+    const displayedMembers = userProfile?.role === 'tl' && userProfile?.team
+      ? allMembers.filter(m => m.team === userProfile.team)
+      : allMembers;
 
-  return (
-    <div className="min-h-screen p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
-      <div className="max-w-[1400px] mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/60 dark:border-gray-800">
-          <div className="flex items-center gap-3.5 sm:gap-5">
-            <div className="flex items-center gap-2">
-              <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain" />
+    const activeCols = columnsMap[selectedTeam] || [];
+    const manageCols = manageColsTeam === 'ALL'
+      ? (columnsMap['Ankido Buya Team'] || columnsMap['Younis Kamal Team'] || columnsMap[selectedTeam] || [])
+      : (columnsMap[manageColsTeam] || []);
+
+    return (
+      <div className="min-h-screen p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
+        <div className="max-w-[1400px] mx-auto">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full mb-8 gap-4 pb-6 border-b border-gray-200/60 dark:border-gray-800">
+            <div className="flex items-center gap-3.5 sm:gap-5">
+              <div className="flex items-center gap-2">
+                <img src="/logo.webp" alt="FIB Logo" className="h-11 sm:h-12 w-auto object-contain" />
+              </div>
+              <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                  Team Leader Dashboard
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                  Performance & Quality Analytics
+                </p>
+              </div>
             </div>
-            <div className="h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                Team Leader Dashboard
-              </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                Performance & Quality Analytics
-              </p>
+            
+            <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap sm:flex-nowrap">
+              {/* Dark Mode Toggle */}
+              <button 
+                onClick={toggleDarkMode} 
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                title="Toggle Dark Mode"
+              >
+                {isDarkMode ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} />}
+              </button>
+
+              {/* Agent View Button (For Managers: Mohammed Dlshad & Jalal Burghol) */}
+              {isManager && (
+                <>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+                  <button
+                    onClick={() => setShowAgentPreview(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 border border-emerald-200/60 dark:border-emerald-800/60 transition-all shadow-xs group"
+                    title="Open Agent Dashboard View"
+                  >
+                    <LayoutDashboard size={13} className="text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <span>Agent View</span>
+                  </button>
+                </>
+              )}
+
+              {/* Manage Team / System Config (ONLY FOR ADMIN: Mohammed Dlshad) */}
+              {isAdmin && (
+                <>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+                  <button
+                    onClick={openManageModal}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
+                    title="System Configuration"
+                  >
+                    <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                      <Settings size={13} />
+                    </div>
+                    <span>System Config</span>
+                  </button>
+                </>
+              )}
+
+              <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+
+              {/* Profile Button */}
+              <button 
+                onClick={openProfileModal}
+                className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group"
+                title="Profile Settings"
+              >
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1C6B53] to-emerald-400 flex items-center justify-center overflow-hidden ring-2 ring-[#1C6B53]/20 dark:ring-emerald-400/20 text-white font-black text-xs shadow-sm flex-shrink-0">
+                  {userProfile?.photo_url ? (
+                    <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={13} />
+                  )}
+                </div>
+                <span className="max-w-[130px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
+                  {userProfile?.name || (isAdmin ? 'Mohammed Dlshad' : (isManager ? 'Jalal Burghol' : 'Team Lead'))}
+                </span>
+              </button>
+
+              <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+
+              {/* Logout Button */}
+              <button 
+                onClick={handleLogout} 
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all"
+                title="Logout"
+              >
+                <LogOut size={14} />
+                <span>Logout</span>
+              </button>
             </div>
           </div>
-          
-          <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap sm:flex-nowrap">
-            {/* Dark Mode Toggle */}
-            <button 
-              onClick={toggleDarkMode} 
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
-              title="Toggle dark mode"
-            >
-              {isDarkMode ? <Sun size={17} className="text-amber-500" /> : <Moon size={17} />}
-            </button>
-
-            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
-
-            {/* Manage Team / System Config */}
-            <button
-              onClick={openManageModal}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
-              title={userProfile?.role === 'manager' ? 'System Configuration' : 'Manage Team'}
-            >
-              <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                {userProfile?.role === 'manager' ? <Settings size={13} /> : <Users size={13} />}
-              </div>
-              <span>{userProfile?.role === 'manager' ? 'System Config' : 'Manage Team'}</span>
-            </button>
-
-            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
-
-            {/* Profile Button */}
-            <button 
-              onClick={openProfileModal}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group"
-              title="Profile Settings"
-            >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1C6B53] to-emerald-400 flex items-center justify-center overflow-hidden ring-2 ring-[#1C6B53]/20 dark:ring-emerald-400/20 text-white font-black text-xs shadow-sm flex-shrink-0">
-                {userProfile?.photo_url ? (
-                  <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <Users size={13} />
-                )}
-              </div>
-              <span className="max-w-[130px] truncate group-hover:text-[#1C6B53] dark:group-hover:text-emerald-400 transition-colors">
-                {userProfile?.name || (userProfile?.role === 'manager' ? 'Jalal Burghol' : 'Team Lead')}
-              </span>
-            </button>
-
-            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
-
-            {/* Logout Button */}
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all"
-              title="Logout"
-            >
-              <LogOut size={14} />
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
 
         {/* Team Cards */}
         {activeTeams.length === 1 ? (
@@ -1464,17 +1718,20 @@ export default function Dashboard() {
         {/* Month Tabs & Controls Bar */}
         <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto shadow-sm mb-5">
           {/* Year selector */}
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0 flex-shrink-0"
-          >
-            <option value="2026">2026</option>
-            <option value="2027">2027</option>
-            <option value="2028">2028</option>
-            <option value="2029">2029</option>
-            <option value="2030">2030</option>
-          </select>
+          <div className="relative flex-shrink-0">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="appearance-none pl-3.5 pr-8 py-1.5 rounded-xl text-xs font-bold bg-[#1C6B53] text-white shadow-sm outline-none cursor-pointer border-0"
+            >
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+              <option value="2028">2028</option>
+              <option value="2029">2029</option>
+              <option value="2030">2030</option>
+            </select>
+            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/80" />
+          </div>
 
           {/* Search Agent Input & Count next to Year */}
           <div className="relative flex-shrink-0">
@@ -1616,20 +1873,18 @@ export default function Dashboard() {
       </div>
 
       {/* Manage Settings Modal (System Configuration) */}
-      {showManageMembers && (
+      {showManageMembers && isAdmin && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto overscroll-contain">
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowManageMembers(false)} />
-          <div className={`relative bg-[#F9F8F4] dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all overscroll-contain ${userProfile?.role === 'manager' ? 'max-w-5xl' : 'max-w-2xl'}`}>
+          <div className="relative bg-[#F9F8F4] dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 w-full border border-transparent dark:border-gray-700 mb-10 transition-all overscroll-contain max-w-5xl">
             
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-                  {userProfile?.role === 'manager' ? 'System Configuration' : 'Manage Team Agents'}
+                  System Configuration
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {userProfile?.role === 'manager' 
-                    ? 'Add or remove agents and table columns across the system.' 
-                    : `Manage agent roster for ${userProfile?.team || 'your team'}.`}
+                  Add or remove agents and table columns across the system.
                 </p>
               </div>
               <button onClick={() => setShowManageMembers(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
@@ -1637,7 +1892,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <div className={`grid gap-6 ${userProfile?.role === 'manager' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
               
               {/* Agents Card */}
               <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -1741,128 +1996,129 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Columns Card - ONLY FOR MANAGER */}
-              {userProfile?.role === 'manager' && (
-                <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Columns size={18} className="text-gray-600 dark:text-gray-300" />
-                      <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns & KPIs</h3>
-                    </div>
+              {/* Columns Card - Admin Only */}
+              <div className="bg-[#F1EFE8] dark:bg-gray-800/50 rounded-2xl p-6 flex flex-col h-[550px] border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Columns size={18} className="text-gray-600 dark:text-gray-300" />
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100">Table Columns & KPIs</h3>
+                  </div>
+                  <div className="relative">
                     <select 
                       value={manageColsTeam} 
                       onChange={(e: any) => setManageColsTeam(e.target.value)}
-                      className="text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1 text-gray-700 dark:text-gray-300 outline-none focus:border-[#1C6B53] font-semibold"
+                      className="appearance-none pl-3 pr-8 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-800 dark:text-gray-200 outline-none focus:border-[#1C6B53] font-semibold cursor-pointer shadow-xs"
                     >
-                      <option value="ALL">🌐 All Teams (Global / الجميع)</option>
+                      <option value="ALL">🌐 All Teams</option>
                       {activeTeams.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                  </div>
-
-                  {manageColsTeam === 'ALL' && (
-                    <div className="mb-3 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl text-[11px] text-[#1C6B53] dark:text-emerald-300 font-semibold flex items-center gap-1.5">
-                      <span>✓ Syncs Across All Team Leaders & Agent Dashboards Automatically</span>
-                    </div>
-                  )}
-                  
-                  <input
-                    type="text"
-                    placeholder="KPI Name (e.g. Quality, Exam, Prod)"
-                    value={newColLabel}
-                    onChange={(e) => setNewColLabel(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53] font-medium"
-                  />
-
-                  <div className="flex gap-3 mb-3">
-                    <div className="flex-1 flex flex-col">
-                      <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
-                      <div className="relative">
-                        <select value={newColType} onChange={(e: any) => setNewColType(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
-                          <option value="number" className="bg-white text-gray-800">Number</option>
-                          <option value="time" className="bg-white text-gray-800">Time (mm:ss)</option>
-                        </select>
-                        <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                          <ChevronDown size={14} className="text-white" />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex flex-col">
-                      <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
-                      <div className="relative">
-                        <select value={newColAgg} onChange={(e: any) => setNewColAgg(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
-                          <option value="average" className="bg-white text-gray-800">Average</option>
-                          <option value="sum" className="bg-white text-gray-800">Sum</option>
-                        </select>
-                        <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
-                          <ChevronDown size={14} className="text-white" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleAddColumn}
-                    className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5"
-                  >
-                    <Plus size={16} /> Add KPI Column
-                  </button>
-
-                  <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
-                    {manageCols.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No columns configured.</div>}
-                    {manageCols.map((col) => (
-                      <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
-                        
-                        {editingColId === col.id ? (
-                          <div className="flex-1 flex gap-2 items-center">
-                            <input 
-                              type="text" 
-                              value={editColLabel} 
-                              onChange={(e) => setEditColLabel(e.target.value)} 
-                              className="flex-1 px-2.5 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <select 
-                              value={editColType} 
-                              onChange={(e: any) => setEditColType(e.target.value)} 
-                              className="px-2 py-1.5 text-[10px] font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            >
-                              <option value="number">Number</option>
-                              <option value="time">Time</option>
-                            </select>
-                            <select 
-                              value={editColAgg} 
-                              onChange={(e: any) => setEditColAgg(e.target.value)} 
-                              className="px-2 py-1.5 text-[10px] font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            >
-                              <option value="average">Average</option>
-                              <option value="sum">Sum</option>
-                            </select>
-                            <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700 p-1 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
-                              <Save size={14}/>
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{toTitleCase(col.label)}</span>
-                            <div className="flex items-center gap-2.5">
-                              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
-                                {toTitleCase(col.type)} • {toTitleCase(col.aggregation)}
-                              </span>
-                              <div className="flex gap-1.5">
-                                <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title="Edit KPI">
-                                  <Edit2 size={14} />
-                                </button>
-                                <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 p-1" title="Delete KPI">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                    <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
                   </div>
                 </div>
-              )}
+
+                {manageColsTeam === 'ALL' && (
+                  <div className="mb-3 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 rounded-xl text-[11px] text-[#1C6B53] dark:text-emerald-300 font-semibold flex items-center gap-1.5">
+                    <span>✓ Syncs Across All Team Leaders & Agent Dashboards Automatically</span>
+                  </div>
+                )}
+                
+                <input
+                  type="text"
+                  placeholder="KPI Name (e.g. Quality, Exam, Prod)"
+                  value={newColLabel}
+                  onChange={(e) => setNewColLabel(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm mb-3 bg-white dark:bg-gray-700 focus:outline-none focus:border-[#1C6B53] font-medium"
+                />
+
+                <div className="flex gap-3 mb-3">
+                  <div className="flex-1 flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Data Type</label>
+                    <div className="relative">
+                      <select value={newColType} onChange={(e: any) => setNewColType(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
+                        <option value="number" className="bg-white text-gray-800">Number</option>
+                        <option value="time" className="bg-white text-gray-800">Time (mm:ss)</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                        <ChevronDown size={14} className="text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Aggregation</label>
+                    <div className="relative">
+                      <select value={newColAgg} onChange={(e: any) => setNewColAgg(e.target.value)} className="w-full px-3 py-2 bg-[#1C6B53] text-white text-sm font-medium rounded-xl appearance-none cursor-pointer outline-none">
+                        <option value="average" className="bg-white text-gray-800">Average</option>
+                        <option value="sum" className="bg-white text-gray-800">Sum</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                        <ChevronDown size={14} className="text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddColumn}
+                  className="w-full flex justify-center items-center gap-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white py-2.5 rounded-xl text-sm font-bold transition shadow-sm mb-5"
+                >
+                  <Plus size={16} /> Add KPI Column
+                </button>
+
+                <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-2 pr-1">
+                  {manageCols.length === 0 && <div className="text-xs text-gray-400 text-center mt-4">No columns configured.</div>}
+                  {manageCols.map((col) => (
+                    <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex justify-between items-center shadow-sm">
+                      
+                      {editingColId === col.id ? (
+                        <div className="flex-1 flex gap-2 items-center">
+                          <input 
+                            type="text" 
+                            value={editColLabel} 
+                            onChange={(e) => setEditColLabel(e.target.value)} 
+                            className="flex-1 px-2.5 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          />
+                          <select 
+                            value={editColType} 
+                            onChange={(e: any) => setEditColType(e.target.value)} 
+                            className="px-2 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer"
+                          >
+                            <option value="number">Number</option>
+                            <option value="time">Time</option>
+                          </select>
+                          <select 
+                            value={editColAgg} 
+                            onChange={(e: any) => setEditColAgg(e.target.value)} 
+                            className="px-2 py-1.5 text-xs font-semibold border rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer"
+                          >
+                            <option value="average">Average</option>
+                            <option value="sum">Sum</option>
+                          </select>
+                          <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700 p-1 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
+                            <Save size={14}/>
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{toTitleCase(col.label)}</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                              {toTitleCase(col.type)} • {toTitleCase(col.aggregation)}
+                            </span>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title="Edit KPI">
+                                <Edit2 size={14} />
+                              </button>
+                              <button onClick={() => handleRemoveColumn(col.id)} className="text-red-400 hover:text-red-600 p-1" title="Delete KPI">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
             </div>
           </div>
