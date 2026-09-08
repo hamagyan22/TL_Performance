@@ -811,7 +811,7 @@ export default function Dashboard() {
             </div>
             
             <div className="flex flex-col items-center mb-8 mt-4">
-              <div className="w-24 h-24 mb-6 rounded-2xl bg-white dark:bg-white p-2 shadow-sm flex items-center justify-center border border-gray-100 dark:border-gray-700">
+              <div className="h-16 mb-6 flex items-center justify-center">
                 <img src="/logo.webp" alt="FIB Logo" className="w-full h-full object-contain" />
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-center tracking-tight text-gray-900 dark:text-white leading-tight">
