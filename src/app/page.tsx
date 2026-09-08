@@ -91,6 +91,8 @@ function AgentDashboard({
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   
   const [memberDoc, setMemberDoc] = useState<any>(null);
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const [agentSearchTerm, setAgentSearchTerm] = useState("");
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editPhotoUrl, setEditPhotoUrl] = useState("");
@@ -262,13 +264,12 @@ function AgentDashboard({
   };
 
   const PERIODS = [
-    { label: 'Q1 - AVG', months: ['JAN','FEB','MAR'] },
-    { label: 'Q2 - AVG', months: ['APR','MAY','JUN'] },
-    { label: 'Q3 - AVG', months: ['JUL','AUG','SEP'] },
-    { label: 'Q4 - AVG', months: ['OCT','NOV','DEC'] },
-    { label: 'H1 - AVG', months: ['JAN','FEB','MAR','APR','MAY','JUN'] },
-    { label: 'H2 - AVG', months: ['JUL','AUG','SEP','OCT','NOV','DEC'] },
-    { label: 'YEAR - AVG', months: months },
+    { label: 'Q1', months: ['JAN','FEB','MAR'] },
+    { label: 'Q2', months: ['APR','MAY','JUN'] },
+    { label: 'Q3', months: ['JUL','AUG','SEP'] },
+    { label: 'Q4', months: ['OCT','NOV','DEC'] },
+    { label: 'H1', months: ['JAN','FEB','MAR','APR','MAY','JUN'] },
+    { label: 'H2', months: ['JUL','AUG','SEP','OCT','NOV','DEC'] },
   ];
 
   // selectedPeriod: either a month name or a period label
@@ -292,46 +293,105 @@ function AgentDashboard({
 
         {/* Executive Preview Toolbar (When Manager/Admin is inspecting an agent) */}
         {previewMode && (
-          <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-[#1C6B53] to-emerald-900 text-white rounded-3xl shadow-xl border border-emerald-400/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-[#0C3227] via-[#124235] to-[#0C3227] text-white rounded-3xl shadow-xl border border-emerald-500/25 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-30">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-inner">
-                <Eye size={22} className="text-emerald-200" />
+              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-emerald-300 border border-emerald-400/20 shadow-inner">
+                <Eye size={20} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black tracking-widest uppercase text-emerald-200">Executive Agent View</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm">Live Agent Preview</span>
+                  <span className="text-xs font-black tracking-widest uppercase text-emerald-300">Executive Agent View</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">Live Preview</span>
                 </div>
-                <p className="text-xs text-emerald-100/80 font-medium mt-0.5">Switch between team members to inspect their actual scorecard & KPIs</p>
+                <p className="text-xs text-emerald-100/75 font-medium mt-0.5">Switch between team members to inspect their scorecards & KPIs</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto">
-              {/* Modern Agent Dropdown */}
+              {/* Custom Modern Agent Dropdown */}
               <div className="relative flex-1 md:w-80">
-                <select
-                  value={currentAgent?.agent_name || ""}
-                  onChange={(e) => {
-                    const found = allMembers.find(m => m.agent_name === e.target.value);
-                    if (found) {
-                      setCurrentAgent({
-                        role: 'agent',
-                        agent_name: found.agent_name,
-                        team: found.team,
-                        name: found.agent_name,
-                        photo_url: found.photo_url || ""
-                      });
-                    }
-                  }}
-                  className="w-full pl-4 pr-10 py-2.5 bg-white text-gray-900 dark:bg-gray-800 dark:text-white border border-white/20 rounded-2xl text-xs font-bold outline-none cursor-pointer shadow-md appearance-none"
+                <button
+                  type="button"
+                  onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
+                  className="w-full flex items-center justify-between gap-2.5 px-4 py-2.5 bg-white/10 hover:bg-white/15 dark:bg-gray-800/90 border border-white/20 dark:border-gray-700 rounded-2xl text-xs font-bold text-white shadow-md backdrop-blur-md transition-all cursor-pointer text-left"
                 >
-                  {allMembers.map(m => (
-                    <option key={m.id} value={m.agent_name} className="text-gray-900 dark:text-white">
-                      {m.agent_name} — {m.team?.replace(' Team', '')}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-emerald-400/20 border border-emerald-300/30 flex items-center justify-center text-emerald-300 text-[10px] font-black shrink-0">
+                      {currentAgent?.agent_name ? currentAgent.agent_name.charAt(0).toUpperCase() : <Users size={12} />}
+                    </div>
+                    <span className="truncate">{currentAgent?.agent_name || "Select Agent"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/15 text-emerald-100">
+                      {currentAgent?.team?.replace(' Team', '') || ''}
+                    </span>
+                    <ChevronDown size={14} className={`text-emerald-200 transition-transform duration-200 ${agentDropdownOpen ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+
+                {agentDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setAgentDropdownOpen(false)} />
+                    <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 z-50 max-h-80 flex flex-col">
+                      <div className="relative mb-2">
+                        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Filter agents..."
+                          value={agentSearchTerm}
+                          onChange={(e) => setAgentSearchTerm(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:border-[#1C6B53] text-gray-800 dark:text-gray-200 font-medium"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="overflow-y-auto space-y-1 flex-1 pr-1 overscroll-contain">
+                        {allMembers
+                          .filter(m => 
+                            (m.agent_name || "").toLowerCase().includes(agentSearchTerm.toLowerCase()) ||
+                            (m.team || "").toLowerCase().includes(agentSearchTerm.toLowerCase())
+                          )
+                          .map(m => {
+                            const isSelected = m.agent_name === currentAgent?.agent_name;
+                            return (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => {
+                                  setCurrentAgent({
+                                    role: 'agent',
+                                    agent_name: m.agent_name,
+                                    team: m.team,
+                                    name: m.agent_name,
+                                    photo_url: m.photo_url || ""
+                                  });
+                                  setAgentDropdownOpen(false);
+                                  setAgentSearchTerm("");
+                                }}
+                                className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition ${
+                                  isSelected
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 font-bold'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300 shrink-0">
+                                    {m.agent_name?.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="truncate">{m.agent_name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                                    {m.team?.replace(' Team', '')}
+                                  </span>
+                                  {isSelected && <Check size={13} className="text-[#1C6B53] dark:text-emerald-400" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Exit Preview Button */}
@@ -364,12 +424,13 @@ function AgentDashboard({
               )}
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-gray-400 dark:text-gray-500 text-xs font-semibold tracking-wide">
-                  {previewMode ? 'Viewing Performance For' : 'Welcome Back'}
-                </span>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50">
-                  {currentAgent?.team}
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-xs font-bold tracking-wide">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{currentAgent?.team || 'Team Member'}</span>
+                </div>
+                <span className="text-gray-400 dark:text-gray-500 text-xs font-medium">
+                  {previewMode ? '• Agent Performance Scorecard' : '• Performance Scorecard'}
                 </span>
               </div>
               <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
@@ -379,14 +440,7 @@ function AgentDashboard({
           </div>
 
           <div className="flex items-center gap-3">
-            {previewMode ? (
-              <button 
-                onClick={onExitPreview} 
-                className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] rounded-xl transition shadow-md shadow-[#1C6B53]/20"
-              >
-                <ArrowLeft size={14} /> Exit Agent View
-              </button>
-            ) : (
+            {!previewMode && (
               <button 
                 onClick={onLogout} 
                 className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
@@ -1328,12 +1382,8 @@ export default function Dashboard() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
 
           <div className="w-full max-w-[440px] p-8 sm:p-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 relative z-10">
-            {/* Top Bar with Badge and Dark Mode Toggle */}
-            <div className="flex justify-between items-center mb-7">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/70 dark:border-emerald-800/60 text-[#1C6B53] dark:text-emerald-300 text-[11px] font-bold tracking-wider uppercase">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Performance Portal</span>
-              </div>
+            {/* Top Bar with Dark Mode Toggle */}
+            <div className="flex justify-end items-center mb-6">
               <button 
                 onClick={toggleDarkMode} 
                 className="w-10 h-10 rounded-2xl bg-gray-100/80 dark:bg-gray-800/80 hover:bg-gray-200/80 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-all flex items-center justify-center border border-gray-200/50 dark:border-gray-700/50 shadow-sm"
@@ -1345,14 +1395,14 @@ export default function Dashboard() {
             
             {/* Logo & Heading */}
             <div className="flex flex-col items-center text-center mb-8">
-              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-gray-800 p-3.5 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50 shadow-sm mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-gray-800 p-2.5 flex items-center justify-center border border-emerald-100/80 dark:border-emerald-900/50 shadow-sm mb-4">
                 <img src="/logo.webp" alt="FIB Logo" className="w-full h-full object-contain drop-shadow-sm" />
               </div>
-              <h2 className="text-2xl sm:text-[26px] font-black tracking-tight text-gray-900 dark:text-white leading-tight">
+              <h2 className="text-xl sm:text-[22px] font-bold tracking-tight text-gray-900 dark:text-white leading-snug">
                 Team Leader & Agent Dashboard
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
-                Welcome Back. Please Sign In To Access Your Scorecards.
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                Welcome back. Please sign in to access your scorecards.
               </p>
             </div>
             
@@ -1534,6 +1584,47 @@ export default function Dashboard() {
       ? (columnsMap['Ankido Buya Team'] || columnsMap['Younis Kamal Team'] || columnsMap[selectedTeam] || [])
       : (columnsMap[manageColsTeam] || []);
 
+    const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, colIndex: number) => {
+      if (isAggregate) return;
+
+      let targetRow = rowIndex;
+      let targetCol = colIndex;
+
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault();
+        targetRow = Math.min(filteredRows.length - 1, rowIndex + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        targetRow = Math.max(0, rowIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        const input = e.currentTarget;
+        if (input.selectionStart === input.selectionEnd && input.selectionStart === input.value.length) {
+          if (colIndex < activeCols.length - 1) {
+            e.preventDefault();
+            targetCol = colIndex + 1;
+          }
+        }
+      } else if (e.key === 'ArrowLeft') {
+        const input = e.currentTarget;
+        if (input.selectionStart === input.selectionEnd && input.selectionStart === 0) {
+          if (colIndex > 0) {
+            e.preventDefault();
+            targetCol = colIndex - 1;
+          }
+        }
+      } else {
+        return;
+      }
+
+      if (targetRow !== rowIndex || targetCol !== colIndex) {
+        const targetElement = document.getElementById(`cell-${targetRow}-${targetCol}`) as HTMLInputElement | null;
+        if (targetElement) {
+          targetElement.focus();
+          targetElement.select();
+        }
+      }
+    };
+
     return (
       <div className="min-h-screen p-6 md:p-10 font-sans transition-colors dark:bg-gray-900 dark:text-gray-100">
         <div className="max-w-[1400px] mx-auto">
@@ -1570,10 +1661,12 @@ export default function Dashboard() {
                   <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
                   <button
                     onClick={() => setShowAgentPreview(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 border border-emerald-200/60 dark:border-emerald-800/60 transition-all shadow-xs group"
-                    title="Open Agent Dashboard View"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
+                    title="Agent View"
                   >
-                    <LayoutDashboard size={13} className="text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                      <LayoutDashboard size={13} />
+                    </div>
                     <span>Agent View</span>
                   </button>
                 </>
@@ -1834,15 +1927,17 @@ export default function Dashboard() {
                         )}
                         <span className="font-semibold truncate">{row.display_name || row.agent_name}</span>
                       </div>
-                      {activeCols.map(col => (
+                      {activeCols.map((col, colIndex) => (
                         <div key={col.id} className="text-right">
                           <input 
+                            id={`cell-${index}-${colIndex}`}
                             disabled={disabled}
                             type="text"
                             placeholder={col.type === 'time' ? 'm:ss' : (col.aggregation === 'average' ? '%' : '#')}
                             value={row[col.id] || ''}
                             onChange={(e) => handleChange(actualIndex, col.id, e.target.value)}
                             onBlur={() => handleBlur(actualIndex)}
+                            onKeyDown={(e) => handleCellKeyDown(e, index, colIndex)}
                             className="w-20 text-right bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-200 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/15 outline-none transition shadow-sm font-medium disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:border-transparent disabled:text-gray-700 dark:disabled:text-gray-300"
                           />
                         </div>
