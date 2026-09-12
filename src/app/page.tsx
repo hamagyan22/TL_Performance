@@ -393,6 +393,14 @@ function AgentDashboard({
     return avgCols(period.months, col);
   };
 
+  const getAgentColLabel = (col: any) => {
+    const id = (col.id || '').toLowerCase();
+    const lbl = (col.label || '').toLowerCase();
+    if (id === 'aht' || lbl === 'aht') return 'AHT';
+    if (id === 'wrapup' || lbl === 'wrapup' || id.includes('wrapup') || lbl.includes('wrapup')) return 'Wrapup Not Selected';
+    return toTitleCase(col.label);
+  };
+
   return (
     <div className="min-h-screen p-3.5 sm:p-6 md:p-10 font-sans bg-[#F9F8F4] dark:bg-gray-900 transition-colors">
       <div className="max-w-[1400px] mx-auto">
@@ -629,7 +637,7 @@ function AgentDashboard({
                       className="relative overflow-hidden bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/15 hover:border-emerald-400/40 rounded-xl sm:rounded-2xl p-3 sm:p-4 transition-all duration-200 group shadow-sm hover:shadow-md flex flex-col justify-between"
                     >
                       <span className="text-[11px] sm:text-xs font-semibold text-emerald-100/80 group-hover:text-white transition-colors truncate block">
-                        {toTitleCase(col.label)}
+                        {getAgentColLabel(col)}
                       </span>
                       
                       <div className="mt-2 flex items-baseline">
@@ -665,55 +673,63 @@ function AgentDashboard({
                 <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 sm:mx-1 shrink-0" />
 
                 {/* Month tabs */}
-                {months.map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setSelectedMonth(m)}
-                    className={`shrink-0 px-2.5 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-black rounded-xl transition-all duration-150 ${
-                      selectedMonth === m
-                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
+                {months.map(m => {
+                  const displayLabel = m.charAt(0) + m.slice(1).toLowerCase();
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedMonth(m)}
+                      className={`shrink-0 px-2.5 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-xl transition-all duration-150 ${
+                        selectedMonth === m
+                          ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      {displayLabel}
+                    </button>
+                  );
+                })}
 
                 <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 sm:mx-1 shrink-0" />
 
-                {/* Period tabs */}
-                {PERIODS.map(p => (
-                  <button
-                    key={p.label}
-                    onClick={() => setSelectedMonth(p.label)}
-                    className={`shrink-0 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-black rounded-xl transition-all duration-150 whitespace-nowrap ${
-                      selectedMonth === p.label
-                        ? 'bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+                {/* Period tabs - Styled in Green like Team Leader Dashboard */}
+                {PERIODS.map(p => {
+                  const isSel = selectedMonth === p.label;
+                  return (
+                    <button
+                      key={p.label}
+                      onClick={() => setSelectedMonth(p.label)}
+                      className={`shrink-0 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-xl transition-all duration-150 whitespace-nowrap ${
+                        isSel
+                          ? 'bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]'
+                          : 'text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* KPI Cards — Grand, High-Impact Modern Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-5">
               {teamCols.map((col: any) => {
+                const cardLabel = getAgentColLabel(col);
                 const meta = KPI_META[col.id] || {
                   icon: Activity,
                   color: 'text-[#1C6B53] dark:text-emerald-400',
                   bgLight: 'bg-emerald-500/10',
                   bgDark: 'dark:bg-emerald-500/15',
                   border: 'bg-[#1C6B53]',
-                  label: toTitleCase(col.label)
+                  label: cardLabel
                 };
                 const IconComp = meta.icon;
                 const val = getDisplayVal(col);
 
-                const isTime = col.type === 'time';
-                const isPercent = !isTime && (
+                const isWrapup = col.id?.toLowerCase().includes('wrapup') || col.label?.toLowerCase().includes('wrapup');
+                const isTime = col.type === 'time' && !isWrapup;
+                const isPercent = !isTime && !isWrapup && (
                   col.aggregation === 'average' || 
                   col.id.toLowerCase().includes('quality') || 
                   col.id.toLowerCase().includes('exam') || 
@@ -743,7 +759,7 @@ function AgentDashboard({
                             <IconComp size={16} strokeWidth={2.5} className="sm:w-5 sm:h-5" />
                           </div>
                           <span className="text-xs sm:text-base font-black text-gray-800 dark:text-gray-100 tracking-tight block truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                            {toTitleCase(col.label)}
+                            {cardLabel}
                           </span>
                         </div>
                       </div>
@@ -756,7 +772,7 @@ function AgentDashboard({
                           </span>
                         ) : (
                           <div className="flex items-baseline gap-1 flex-wrap">
-                            <span className="text-3xl sm:text-4xl lg:text-[46px] font-black tracking-tight tabular-nums bg-gradient-to-br from-gray-950 via-gray-800 to-gray-700 dark:from-white dark:via-gray-100 dark:to-gray-200 bg-clip-text text-transparent leading-none">
+                            <span className="text-3xl sm:text-4xl lg:text-[46px] font-black tracking-tight tabular-nums text-gray-900 dark:text-white leading-none drop-shadow-xs">
                               {cleanVal}
                             </span>
                             
