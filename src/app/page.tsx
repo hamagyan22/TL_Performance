@@ -2389,11 +2389,11 @@ export default function Dashboard() {
             {/* Table Header */}
             <div className="grid gap-2 px-3 sm:px-5 py-3.5 bg-gray-50/95 dark:bg-gray-800/95 backdrop-blur-md text-xs font-bold border-b border-gray-200/80 dark:border-gray-700/80 items-center"
                  style={{ gridTemplateColumns: `minmax(180px, 2.2fr) repeat(${activeCols.length}, minmax(105px, 1fr))` }}>
-              <div className="pl-2 sticky left-0 bg-gray-50/95 dark:bg-gray-800/95 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] uppercase tracking-wider text-[11px] sm:text-xs font-extrabold text-gray-500 dark:text-gray-400">
+              <div className="pl-2 sticky left-0 bg-gray-50/95 dark:bg-gray-800/95 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] text-[11px] sm:text-xs font-extrabold text-gray-600 dark:text-gray-300">
                 Agent
               </div>
               {activeCols.map(col => (
-                <div key={col.id} className="text-center font-extrabold text-[11px] sm:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 px-1 truncate" title={toTitleCase(col.label)}>
+                <div key={col.id} className="text-center font-extrabold text-[11px] sm:text-xs text-gray-600 dark:text-gray-300 px-1 truncate" title={toTitleCase(col.label)}>
                   {toTitleCase(col.label)}
                 </div>
               ))}
