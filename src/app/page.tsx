@@ -2675,24 +2675,92 @@ export default function Dashboard() {
                   {manageCols.map((col) => (
                     <div key={col.id} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-2.5 sm:p-3 flex justify-between items-center shadow-sm">
                       {editingColId === col.id ? (
-                        <div className="flex-1 flex gap-2 items-center">
-                          <input
-                            type="text"
-                            value={editColLabel}
-                            onChange={(e) => setEditColLabel(e.target.value)}
-                            className="flex-1 px-2 py-1 text-xs sm:text-sm border rounded outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          />
-                          <button onClick={handleSaveColumn} className="text-[#1C6B53] hover:text-emerald-700 p-1">
-                            <Save size={14} />
-                          </button>
+                        <div className="flex-1 flex flex-col gap-2 p-1">
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={editColLabel}
+                              onChange={(e) => setEditColLabel(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveColumn();
+                                if (e.key === 'Escape') setEditingColId(null);
+                              }}
+                              placeholder="KPI Name"
+                              className="flex-1 px-2.5 py-1 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:border-[#1C6B53] dark:bg-gray-700 dark:text-white font-medium"
+                              autoFocus
+                            />
+                            <button 
+                              onClick={handleSaveColumn} 
+                              className="bg-[#1C6B53] hover:bg-[#155a45] text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition"
+                              title="Save Changes"
+                            >
+                              <Save size={13} />
+                              <span>Save</span>
+                            </button>
+                            <button 
+                              onClick={() => setEditingColId(null)} 
+                              className="border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 p-1 rounded-lg text-xs transition"
+                              title="Cancel"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+
+                          {/* Format & Aggregation controls */}
+                          <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-gray-100 dark:border-gray-700">
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[9px] sm:text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Format</label>
+                              <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditColType('number')}
+                                  className={`flex-1 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded transition ${editColType === 'number' ? 'bg-[#1C6B53] text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'}`}
+                                >
+                                  Number / %
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditColType('time')}
+                                  className={`flex-1 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded transition ${editColType === 'time' ? 'bg-[#1C6B53] text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'}`}
+                                >
+                                  Time (m:ss)
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[9px] sm:text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aggregation</label>
+                              <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditColAgg('average')}
+                                  className={`flex-1 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded transition ${editColAgg === 'average' ? 'bg-[#1C6B53] text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'}`}
+                                >
+                                  Average
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditColAgg('sum')}
+                                  className={`flex-1 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold rounded transition ${editColAgg === 'sum' ? 'bg-[#1C6B53] text-white shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'}`}
+                                >
+                                  Sum
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <>
                           <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200">{toTitleCase(col.label)}</span>
                           <div className="flex items-center gap-2 sm:gap-2.5">
-                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md">
-                              {toTitleCase(col.type)} • {toTitleCase(col.aggregation)}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleEditColumnStart(col)}
+                              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1"
+                              title="Click to edit format and aggregation"
+                            >
+                              <span>{toTitleCase(col.type)} • {toTitleCase(col.aggregation)}</span>
+                            </button>
                             <div className="flex gap-1 sm:gap-1.5">
                               <button onClick={() => handleEditColumnStart(col)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" title="Edit KPI">
                                 <Edit2 size={13} />
