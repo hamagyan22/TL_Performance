@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebaseClient";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs, getDoc, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed } from "lucide-react";
+import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed, Timer, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
 const TEAMS: TeamName[] = ['Younis Kamal Team', 'Ankido Buya Team', 'Mohammed Dlshad Team'];
@@ -21,7 +21,7 @@ const DEFAULT_CHAT_COLUMNS: ColumnConfig[] = [
   { id: 'quality', label: 'QUALITY', type: 'number', aggregation: 'average' },
   { id: 'aht', label: 'AHT', type: 'time', aggregation: 'average' },
   { id: 'art', label: 'ART', type: 'time', aggregation: 'average' },
-  { id: 'productivity', label: 'PROD', type: 'number', aggregation: 'average' },
+  { id: 'productivity', label: 'Productivity', type: 'number', aggregation: 'average' },
   { id: 'inbound', label: 'INBOUND', type: 'number', aggregation: 'sum' },
   { id: 'outbound', label: 'OUTBOUND', type: 'number', aggregation: 'sum' },
 ];
@@ -57,7 +57,17 @@ import { Camera } from "lucide-react";
 
 function toTitleCase(str: string) {
   if (!str) return '';
-  return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+  const upper = str.toUpperCase().trim();
+  if (upper === 'ART') return 'ART';
+  if (upper === 'AHT') return 'AHT';
+  if (upper === 'PROD' || upper === 'PRODUCTIVITY') return 'Productivity';
+  return str.replace(/\w\S*/g, (txt) => {
+    const u = txt.toUpperCase();
+    if (u === 'ART') return 'ART';
+    if (u === 'AHT') return 'AHT';
+    if (u === 'PROD') return 'Productivity';
+    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+  });
 }
 
 function validatePasswordSecurity(password: string): { isValid: boolean; error: string } {
@@ -146,6 +156,30 @@ const KPI_META: Record<string, { icon: any; color: string; bgLight: string; bgDa
     bgDark: 'dark:bg-red-500/15',
     border: 'bg-red-500',
     label: 'Abandoned Calls'
+  },
+  art: { 
+    icon: Timer, 
+    color: 'text-indigo-600 dark:text-indigo-400', 
+    bgLight: 'bg-indigo-500/10', 
+    bgDark: 'dark:bg-indigo-500/15',
+    border: 'bg-indigo-500',
+    label: 'Average Response Time'
+  },
+  inbound: { 
+    icon: PhoneIncoming, 
+    color: 'text-teal-600 dark:text-teal-400', 
+    bgLight: 'bg-teal-500/10', 
+    bgDark: 'dark:bg-teal-500/15',
+    border: 'bg-teal-500',
+    label: 'Inbound Interactions'
+  },
+  outbound: { 
+    icon: PhoneOutgoing, 
+    color: 'text-sky-600 dark:text-sky-400', 
+    bgLight: 'bg-sky-500/10', 
+    bgDark: 'dark:bg-sky-500/15',
+    border: 'bg-sky-500',
+    label: 'Outbound Interactions'
   },
 };
 
@@ -397,6 +431,8 @@ function AgentDashboard({
     const id = (col.id || '').toLowerCase();
     const lbl = (col.label || '').toLowerCase();
     if (id === 'aht' || lbl === 'aht') return 'AHT';
+    if (id === 'art' || lbl === 'art') return 'ART';
+    if (id === 'productivity' || lbl === 'productivity' || id.includes('prod') || lbl.includes('prod')) return 'Productivity';
     if (id === 'wrapup' || lbl === 'wrapup' || id.includes('wrapup') || lbl.includes('wrapup')) return 'Wrapup Not Selected';
     return toTitleCase(col.label);
   };
