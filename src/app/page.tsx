@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { auth, db } from "@/lib/firebaseClient";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs, getDoc, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed, Timer, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed, Timer, PhoneIncoming, PhoneOutgoing, Copy } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
 const TEAMS: TeamName[] = ['Younis Kamal Team', 'Ankido Buya Team', 'Mohammed Dlshad Team'];
@@ -1014,6 +1014,23 @@ export default function Dashboard() {
   const [rows, setRows] = useState<any[]>([]);
   const [showAgentPreview, setShowAgentPreview] = useState(false);
 
+  // Drag-to-select table cells state & refs
+  const [selectionStart, setSelectionStart] = useState<{ rowIndex: number; colIndex: number } | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<{ rowIndex: number; colIndex: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
+
+  const selectionStartRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
+  const selectionEndRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
+  const isSelectingRef = useRef(false);
+
+  const updateSelection = (start: { rowIndex: number; colIndex: number } | null, end: { rowIndex: number; colIndex: number } | null) => {
+    selectionStartRef.current = start;
+    selectionEndRef.current = end;
+    setSelectionStart(start);
+    setSelectionEnd(end);
+  };
+
   const [columnsMap, setColumnsMap] = useState<Record<string, ColumnConfig[]>>({});
 
   // TL & Manager Profile Modal State
@@ -1766,6 +1783,310 @@ export default function Dashboard() {
     }
   }, [userProfile, selectedTeam]);
 
+  // Drag selection helpers and handlers
+  const getSelectionBounds = () => {
+    if (!selectionStart || !selectionEnd) return null;
+    return {
+      minRow: Math.min(selectionStart.rowIndex, selectionEnd.rowIndex),
+      maxRow: Math.max(selectionStart.rowIndex, selectionEnd.rowIndex),
+      minCol: Math.min(selectionStart.colIndex, selectionEnd.colIndex),
+      maxCol: Math.max(selectionStart.colIndex, selectionEnd.colIndex),
+    };
+  };
+
+  const isCellSelected = (r: number, c: number) => {
+    const bounds = getSelectionBounds();
+    if (!bounds) return false;
+    return r >= bounds.minRow && r <= bounds.maxRow && c >= bounds.minCol && c <= bounds.maxCol;
+  };
+
+  const isMultiCellSelected = Boolean(
+    selectionStart &&
+    selectionEnd &&
+    (selectionStart.rowIndex !== selectionEnd.rowIndex || selectionStart.colIndex !== selectionEnd.colIndex)
+  );
+
+  const selectedCellCount = (() => {
+    const b = getSelectionBounds();
+    if (!b) return 0;
+    return (b.maxRow - b.minRow + 1) * (b.maxCol - b.minCol + 1);
+  })();
+
+  const handleCellMouseDown = (e: React.MouseEvent, rowIndex: number, colIndex: number) => {
+    if (e.button !== 0) return; // Only primary mouse button
+
+    if (e.shiftKey && selectionStartRef.current) {
+      e.preventDefault();
+      updateSelection(selectionStartRef.current, { rowIndex, colIndex });
+      return;
+    }
+
+    isSelectingRef.current = true;
+    setIsSelecting(true);
+    updateSelection({ rowIndex, colIndex }, { rowIndex, colIndex });
+  };
+
+  const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
+    if (!isSelectingRef.current || !selectionStartRef.current) return;
+    const start = selectionStartRef.current;
+    if (start.rowIndex !== rowIndex || start.colIndex !== colIndex) {
+      window.getSelection()?.removeAllRanges();
+      if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'INPUT') {
+        document.activeElement.blur();
+      }
+    }
+    updateSelection(start, { rowIndex, colIndex });
+  };
+
+  useEffect(() => {
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!isSelectingRef.current || !selectionStartRef.current) return;
+      
+      const element = document.elementFromPoint(e.clientX, e.clientY);
+      if (!element) return;
+      const cellEl = element.closest('[data-cell-pos="true"]');
+      if (cellEl) {
+        const r = parseInt(cellEl.getAttribute('data-row-index') || '-1', 10);
+        const c = parseInt(cellEl.getAttribute('data-col-index') || '-1', 10);
+        if (r >= 0 && c >= 0) {
+          const start = selectionStartRef.current;
+          const prevEnd = selectionEndRef.current;
+          if (!prevEnd || r !== prevEnd.rowIndex || c !== prevEnd.colIndex) {
+            window.getSelection()?.removeAllRanges();
+            if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'INPUT') {
+              document.activeElement.blur();
+            }
+            updateSelection(start, { rowIndex: r, colIndex: c });
+          }
+        }
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isSelectingRef.current) {
+        isSelectingRef.current = false;
+        setIsSelecting(false);
+
+        const start = selectionStartRef.current;
+        const end = selectionEndRef.current;
+        if (start && end && start.rowIndex === end.rowIndex && start.colIndex === end.colIndex) {
+          const el = document.getElementById(`cell-${start.rowIndex}-${start.colIndex}`) as HTMLInputElement | null;
+          if (el && document.activeElement !== el) {
+            el.focus();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, []);
+
+  const handleClearSelectedCells = async () => {
+    if (isAggregate) return;
+    const bounds = getSelectionBounds();
+    if (!bounds) return;
+
+    const teamCols = columnsMap[selectedTeam] || [];
+    const newRows = [...rows];
+    const rowsToSave: any[] = [];
+
+    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+      const row = filteredRows[r];
+      if (!row || row._readonly) continue;
+      const actualIndex = rows.findIndex(item => item === row);
+      if (actualIndex === -1) continue;
+
+      let changed = false;
+      const updatedRow = { ...newRows[actualIndex] };
+      for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+        const col = teamCols[c];
+        if (col && updatedRow[col.id] !== '') {
+          updatedRow[col.id] = '';
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        newRows[actualIndex] = updatedRow;
+        rowsToSave.push({ row: updatedRow, actualIndex });
+      }
+    }
+
+    if (rowsToSave.length === 0) return;
+    setRows(newRows);
+
+    try {
+      for (const item of rowsToSave) {
+        const { _memberId, _readonly, ...cleanRow } = item.row;
+        const payload = { ...cleanRow, team: selectedTeam, month: selectedMonth, year: selectedYear };
+        if (item.row.id) {
+          await updateDoc(doc(db, tableName, item.row.id), payload);
+        } else {
+          const docRef = await addDoc(collection(db, tableName), payload);
+          item.row.id = docRef.id;
+        }
+      }
+      setCopyToast(`Cleared ${rowsToSave.length} row${rowsToSave.length > 1 ? 's' : ''}`);
+      setTimeout(() => setCopyToast(null), 2000);
+    } catch (err: any) {
+      console.error("Error clearing cells:", err);
+      setErrorMsg(`Error clearing cells: ${err.message}`);
+    }
+  };
+
+  const handleCopySelection = async () => {
+    const bounds = getSelectionBounds();
+    if (!bounds) return;
+
+    const teamCols = columnsMap[selectedTeam] || [];
+    const lines: string[] = [];
+    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+      const row = filteredRows[r];
+      if (!row) continue;
+      const cells: string[] = [];
+      for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+        const col = teamCols[c];
+        if (col) {
+          cells.push(row[col.id]?.toString() || '');
+        }
+      }
+      lines.push(cells.join('\t'));
+    }
+
+    const tsv = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(tsv);
+      setCopyToast(`Copied ${selectedCellCount} cell${selectedCellCount > 1 ? 's' : ''}`);
+      setTimeout(() => setCopyToast(null), 2500);
+    } catch (e) {
+      console.error("Clipboard copy failed:", e);
+    }
+  };
+
+  const handleTablePaste = async (e: React.ClipboardEvent) => {
+    if (isAggregate) return;
+    const clipboardData = e.clipboardData.getData('text/plain');
+    if (!clipboardData) return;
+
+    const rowsData = clipboardData
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split('\n');
+
+    if (rowsData.length > 0 && rowsData[rowsData.length - 1] === '') {
+      rowsData.pop();
+    }
+
+    const parsedGrid = rowsData.map(rowStr => rowStr.split('\t'));
+    if (parsedGrid.length === 0) return;
+
+    if (parsedGrid.length === 1 && parsedGrid[0].length === 1 && document.activeElement?.tagName === 'INPUT') {
+      return;
+    }
+
+    e.preventDefault();
+
+    const bounds = getSelectionBounds();
+    const startRow = bounds ? bounds.minRow : 0;
+    const startCol = bounds ? bounds.minCol : 0;
+    const teamCols = columnsMap[selectedTeam] || [];
+
+    const newRows = [...rows];
+    const rowsToSave: any[] = [];
+
+    parsedGrid.forEach((gridRow, rOffset) => {
+      const targetRowIdx = startRow + rOffset;
+      if (targetRowIdx >= filteredRows.length) return;
+      const row = filteredRows[targetRowIdx];
+      if (!row || row._readonly) return;
+
+      const actualIndex = rows.findIndex(item => item === row);
+      if (actualIndex === -1) return;
+
+      const updatedRow = { ...newRows[actualIndex] };
+      let changed = false;
+
+      gridRow.forEach((val, cOffset) => {
+        const targetColIdx = startCol + cOffset;
+        if (targetColIdx >= teamCols.length) return;
+        const col = teamCols[targetColIdx];
+        if (!col) return;
+
+        const cleanVal = val.trim();
+        updatedRow[col.id] = cleanVal;
+        changed = true;
+      });
+
+      if (changed) {
+        newRows[actualIndex] = updatedRow;
+        rowsToSave.push({ row: updatedRow, actualIndex });
+      }
+    });
+
+    if (rowsToSave.length === 0) return;
+    setRows(newRows);
+
+    try {
+      for (const item of rowsToSave) {
+        const { _memberId, _readonly, ...cleanRow } = item.row;
+        const payload = { ...cleanRow, team: selectedTeam, month: selectedMonth, year: selectedYear };
+        if (item.row.id) {
+          await updateDoc(doc(db, tableName, item.row.id), payload);
+        } else {
+          const docRef = await addDoc(collection(db, tableName), payload);
+          item.row.id = docRef.id;
+        }
+      }
+      setCopyToast(`Pasted ${parsedGrid.length * (parsedGrid[0]?.length || 1)} cells`);
+      setTimeout(() => setCopyToast(null), 2500);
+    } catch (err: any) {
+      console.error("Paste save error:", err);
+      setErrorMsg(`Error saving pasted data: ${err.message}`);
+    }
+  };
+
+  useEffect(() => {
+    updateSelection(null, null);
+  }, [selectedMonth, selectedTeam, selectedYear]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (!selectionStartRef.current || !selectionEndRef.current) return;
+      
+      const isMulti = 
+        selectionStartRef.current.rowIndex !== selectionEndRef.current.rowIndex || 
+        selectionStartRef.current.colIndex !== selectionEndRef.current.colIndex;
+
+      if (e.key === 'Escape') {
+        updateSelection(null, null);
+        return;
+      }
+
+      if (isMulti) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          handleClearSelectedCells();
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          handleCopySelection();
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [rows, filteredRows, selectedTeam, selectedMonth, selectedYear, isAggregate, columnsMap]);
+
+
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center transition-colors dark:bg-gray-900"><div className="text-gray-500 dark:text-gray-400 font-medium">Loading...</div></div>;
   }
@@ -2101,6 +2422,38 @@ export default function Dashboard() {
     const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, colIndex: number) => {
       if (isAggregate) return;
 
+      if (e.shiftKey) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const start = selectionStartRef.current || { rowIndex, colIndex };
+          const end = selectionEndRef.current || { rowIndex, colIndex };
+          const newEnd = { ...end, rowIndex: Math.min(filteredRows.length - 1, end.rowIndex + 1) };
+          updateSelection(start, newEnd);
+          return;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const start = selectionStartRef.current || { rowIndex, colIndex };
+          const end = selectionEndRef.current || { rowIndex, colIndex };
+          const newEnd = { ...end, rowIndex: Math.max(0, end.rowIndex - 1) };
+          updateSelection(start, newEnd);
+          return;
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const start = selectionStartRef.current || { rowIndex, colIndex };
+          const end = selectionEndRef.current || { rowIndex, colIndex };
+          const newEnd = { ...end, colIndex: Math.min(activeCols.length - 1, end.colIndex + 1) };
+          updateSelection(start, newEnd);
+          return;
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const start = selectionStartRef.current || { rowIndex, colIndex };
+          const end = selectionEndRef.current || { rowIndex, colIndex };
+          const newEnd = { ...end, colIndex: Math.max(0, end.colIndex - 1) };
+          updateSelection(start, newEnd);
+          return;
+        }
+      }
+
       let targetRow = rowIndex;
       let targetCol = colIndex;
 
@@ -2131,6 +2484,7 @@ export default function Dashboard() {
       }
 
       if (targetRow !== rowIndex || targetCol !== colIndex) {
+        updateSelection({ rowIndex: targetRow, colIndex: targetCol }, { rowIndex: targetRow, colIndex: targetCol });
         const targetElement = document.getElementById(`cell-${targetRow}-${targetCol}`) as HTMLInputElement | null;
         if (targetElement) {
           targetElement.focus();
@@ -2366,6 +2720,43 @@ export default function Dashboard() {
             {filteredRows.length} Agents
           </span>
 
+          {/* Selection Action Toolbar */}
+          {isMultiCellSelected && (
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 bg-emerald-100/90 dark:bg-emerald-950/90 border border-[#1C6B53]/30 dark:border-emerald-600/40 rounded-xl text-xs text-[#1C6B53] dark:text-emerald-300 font-bold shadow-xs flex-shrink-0 animate-fadeIn">
+              <span className="tabular-nums">{selectedCellCount} selected</span>
+              <div className="h-3.5 w-px bg-emerald-300 dark:bg-emerald-700" />
+              <button 
+                onClick={handleCopySelection}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-emerald-200/60 dark:hover:bg-emerald-900/60 transition"
+                title="Copy selected cells (Ctrl+C)"
+              >
+                <Copy size={12} />
+                <span>Copy</span>
+              </button>
+              {!isAggregate && (
+                <>
+                  <div className="h-3.5 w-px bg-emerald-300 dark:bg-emerald-700" />
+                  <button 
+                    onClick={handleClearSelectedCells}
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 hover:bg-red-100/60 dark:hover:bg-red-950/60 transition"
+                    title="Clear selected cells (Delete / Backspace)"
+                  >
+                    <Trash2 size={12} />
+                    <span>Clear</span>
+                  </button>
+                </>
+              )}
+              <div className="h-3.5 w-px bg-emerald-300 dark:bg-emerald-700" />
+              <button 
+                onClick={() => updateSelection(null, null)}
+                className="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
+                title="Deselect (Esc)"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          )}
+
           {/* Separator */}
           <div className="h-5 w-[1.5px] bg-gray-300 dark:bg-gray-600 mx-0.5 sm:mx-1 flex-shrink-0" />
 
@@ -2417,7 +2808,10 @@ export default function Dashboard() {
         </div>
 
         {/* Data Table */}
-        <div className="bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto scrollbar-hide">
+        <div 
+          onPaste={handleTablePaste}
+          className={`bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto scrollbar-hide ${isSelecting ? 'select-none cursor-crosshair' : ''}`}
+        >
           {errorMsg && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm border-b border-red-100 dark:border-red-800">
               {errorMsg}
@@ -2464,21 +2858,45 @@ export default function Dashboard() {
                         )}
                         <span className="font-bold truncate max-w-[120px] sm:max-w-none text-gray-800 dark:text-gray-100">{row.display_name || row.agent_name}</span>
                       </div>
-                      {activeCols.map((col, colIndex) => (
-                        <div key={col.id} className="flex items-center justify-center px-1">
-                          <input 
-                            id={`cell-${index}-${colIndex}`}
-                            disabled={disabled}
-                            type="text"
-                            placeholder={col.type === 'time' ? 'm:ss' : (col.aggregation === 'average' ? '%' : '#')}
-                            value={row[col.id] || ''}
-                            onChange={(e) => handleChange(actualIndex, col.id, e.target.value)}
-                            onBlur={() => handleBlur(actualIndex)}
-                            onKeyDown={(e) => handleCellKeyDown(e, index, colIndex)}
-                            className="w-full max-w-[85px] sm:max-w-[100px] text-center bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/80 rounded-xl px-2.5 py-1.5 text-xs sm:text-[13px] font-bold text-gray-800 dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-600 placeholder:font-medium placeholder:text-[11px] focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-[#1C6B53]/20 outline-none transition-all shadow-xs tabular-nums disabled:bg-gray-100/60 dark:disabled:bg-gray-800/40 disabled:border-transparent disabled:text-gray-500 dark:disabled:text-gray-400 cursor-text"
-                          />
-                        </div>
-                      ))}
+                      {activeCols.map((col, colIndex) => {
+                        const isSelected = isCellSelected(index, colIndex);
+                        return (
+                          <div 
+                            key={col.id}
+                            data-cell-pos="true"
+                            data-row-index={index}
+                            data-col-index={colIndex}
+                            onMouseDown={(e) => handleCellMouseDown(e, index, colIndex)}
+                            onMouseEnter={() => handleCellMouseEnter(index, colIndex)}
+                            className={`flex items-center justify-center p-0.5 sm:p-1 rounded-xl transition-all ${
+                              isSelected && isMultiCellSelected
+                                ? 'bg-emerald-100 dark:bg-emerald-950/80 ring-2 ring-[#1C6B53] dark:ring-emerald-400 z-10'
+                                : isSelected
+                                ? 'ring-2 ring-[#1C6B53]/40 dark:ring-emerald-400/40'
+                                : ''
+                            }`}
+                          >
+                            <input 
+                              id={`cell-${index}-${colIndex}`}
+                              disabled={disabled}
+                              type="text"
+                              onDragStart={(e) => e.preventDefault()}
+                              placeholder={col.type === 'time' ? 'm:ss' : (col.aggregation === 'average' ? '%' : '#')}
+                              value={row[col.id] || ''}
+                              onChange={(e) => handleChange(actualIndex, col.id, e.target.value)}
+                              onBlur={() => handleBlur(actualIndex)}
+                              onKeyDown={(e) => handleCellKeyDown(e, index, colIndex)}
+                              className={`w-full max-w-[85px] sm:max-w-[100px] text-center rounded-xl px-2.5 py-1.5 text-xs sm:text-[13px] font-bold outline-none transition-all shadow-xs tabular-nums disabled:bg-gray-100/60 dark:disabled:bg-gray-800/40 disabled:border-transparent disabled:text-gray-500 dark:disabled:text-gray-400 cursor-text ${
+                                isSelected && isMultiCellSelected
+                                  ? 'bg-transparent border-transparent text-[#1C6B53] dark:text-emerald-300 font-black'
+                                  : isSelected
+                                  ? 'bg-white dark:bg-gray-800 border-[#1C6B53] dark:border-emerald-500 text-gray-800 dark:text-gray-100'
+                                  : 'bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/80 text-gray-800 dark:text-gray-100 placeholder:text-gray-300 dark:placeholder:text-gray-600 placeholder:font-medium placeholder:text-[11px] focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-[#1C6B53]/20'
+                              }`}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })
@@ -2961,6 +3379,14 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification for Copy/Paste */}
+      {copyToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-[#1C6B53] text-white rounded-xl shadow-xl text-xs font-bold animate-fadeIn border border-emerald-400/30">
+          <Check size={14} />
+          <span>{copyToast}</span>
         </div>
       )}
     </div>
