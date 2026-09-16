@@ -752,7 +752,11 @@ function AgentDashboard({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-5">
               {teamCols.map((col: any) => {
                 const cardLabel = getAgentColLabel(col);
-                const meta = KPI_META[col.id] || {
+                const colKey = (col.id || '').toLowerCase();
+                const lblKey = (col.label || '').toLowerCase();
+                const meta = KPI_META[colKey] || 
+                             KPI_META[lblKey] || 
+                             Object.entries(KPI_META).find(([k]) => colKey.includes(k) || lblKey.includes(k))?.[1] || {
                   icon: Activity,
                   color: 'text-[#1C6B53] dark:text-emerald-400',
                   bgLight: 'bg-emerald-500/10',
