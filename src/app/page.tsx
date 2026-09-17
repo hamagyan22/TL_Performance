@@ -92,6 +92,15 @@ function validatePasswordSecurity(password: string): { isValid: boolean; error: 
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
+const getPreviousMonthAndYear = () => {
+  const now = new Date();
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return {
+    month: MONTHS[prevDate.getMonth()],
+    year: prevDate.getFullYear().toString(),
+  };
+};
+
 const KPI_META: Record<string, { icon: any; color: string; bgLight: string; bgDark: string; border: string; label: string }> = {
   quality: { 
     icon: Award, 
@@ -202,8 +211,7 @@ function AgentDashboard({
   isDarkMode?: boolean;
   toggleDarkMode?: () => void;
 }) {
-  const currentMonth = MONTHS[new Date().getMonth()];
-  const currentYear = new Date().getFullYear().toString();
+  const defaultPeriod = getPreviousMonthAndYear();
 
   const initialAgent = (previewMode && allMembers && allMembers.length > 0)
     ? allMembers[0]
@@ -211,8 +219,8 @@ function AgentDashboard({
   const [currentAgent, setCurrentAgent] = useState<any>(initialAgent);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<any[]>([]);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(defaultPeriod.year);
+  const [selectedMonth, setSelectedMonth] = useState(defaultPeriod.month);
   
   const [memberDoc, setMemberDoc] = useState<any>(null);
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
@@ -1006,10 +1014,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const currentMonth = MONTHS[new Date().getMonth()];
-  const currentYear = new Date().getFullYear().toString();
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const defaultPeriod = getPreviousMonthAndYear();
+  const [selectedMonth, setSelectedMonth] = useState(defaultPeriod.month);
+  const [selectedYear, setSelectedYear] = useState(defaultPeriod.year);
   const [selectedTeam, setSelectedTeam] = useState<TeamName>('Younis Kamal Team');
   const [rows, setRows] = useState<any[]>([]);
   const [showAgentPreview, setShowAgentPreview] = useState(false);
