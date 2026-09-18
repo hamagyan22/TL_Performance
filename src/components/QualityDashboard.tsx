@@ -1283,60 +1283,42 @@ export default function QualityDashboard({
             </div>
           </div>
 
-          {/* Metric KPI Cards Grid: Title Case, No "Audit", Quality Focus, Top QA Agent at Far Right */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
+          {/* Metric KPI Cards Grid: 4 Clean, Balanced, Modern Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* 1. Quality Avg */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
+            <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Quality Avg</div>
-              <div className="text-2xl font-black text-white tracking-tight my-1">
+              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "—"}
               </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Team Quality %</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">Team Quality %</div>
             </div>
 
             {/* 2. Completed Weeks */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
+            <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Completed Weeks</div>
-              <div className="text-2xl font-black text-white tracking-tight my-1">
+              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.weeksCount} / {teamQualityStats.totalWeeksInPeriod}
               </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Weeks Logged</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">Weeks Logged</div>
             </div>
 
             {/* 3. Planned Quality */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
+            <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Planned Quality</div>
               <div className="text-xl sm:text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.totalCallsAudited} / {teamQualityStats.totalTargetCalls}
               </div>
-              <div className="text-[9px] text-emerald-300 font-medium">{teamQualityStats.auditProgressPercent}% Completed</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">{teamQualityStats.auditProgressPercent}% Completed</div>
             </div>
 
-            {/* 4. Inbound Quality */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Inbound Quality</div>
-              <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.inboundCount}
-              </div>
-              <div className="text-[9px] text-emerald-300 font-medium">6 Calls/Week</div>
-            </div>
-
-            {/* 5. Outbound Avg */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Outbound Avg</div>
-              <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.outboundAvg !== "-" ? `${teamQualityStats.outboundAvg}%` : "—"}
-              </div>
-              <div className="text-[9px] text-emerald-300 font-medium">1 Call/Week</div>
-            </div>
-
-            {/* 6. Top QA Agent (Moved to the Far Right) */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between col-span-2">
+            {/* 4. Top QA Agent (On the Far Right) */}
+            <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Top QA Agent</div>
-              <div className="text-sm sm:text-base font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
+              <div className="text-base sm:text-lg font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
                 {teamQualityStats.topAgent}
               </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Highest Quarterly Score</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">Highest Quarterly Score</div>
             </div>
           </div>
         </div>
