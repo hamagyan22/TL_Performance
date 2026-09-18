@@ -68,6 +68,42 @@ const QUARTERS = [
 
 const YEARS = ["2026", "2027", "2028", "2029", "2030"];
 
+// Helper to determine current year, quarter, and week dynamically
+function getCurrentPeriod(): { year: string; quarter: string; week: number } {
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = now.getMonth(); // 0 = Jan, 11 = Dec
+
+  let quarter = "Q1";
+  let quarterStartMonth = 0;
+
+  if (month >= 9) {
+    quarter = "Q4";
+    quarterStartMonth = 9;
+  } else if (month >= 6) {
+    quarter = "Q3";
+    quarterStartMonth = 6;
+  } else if (month >= 3) {
+    quarter = "Q2";
+    quarterStartMonth = 3;
+  } else {
+    quarter = "Q1";
+    quarterStartMonth = 0;
+  }
+
+  const quarterStart = new Date(now.getFullYear(), quarterStartMonth, 1);
+  const diffTime = now.getTime() - quarterStart.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const weekNum = Math.floor(diffDays / 7) + 1;
+  const clampedWeek = Math.min(12, Math.max(1, weekNum));
+
+  return {
+    year,
+    quarter,
+    week: clampedWeek
+  };
+}
+
 // Helper to determine if Chat 7 is active for a given team, year, quarter, and week
 function getHasChat7(isChat: boolean, year: string, quarter: string, weekNum: number): boolean {
   if (!isChat) return false;
@@ -158,8 +194,9 @@ export default function QualityDashboard({
   
   const canSwitchTeams = isAdmin || isManager;
 
-  const [selectedYear, setSelectedYear] = useState("2026");
-  const [selectedQuarter, setSelectedQuarter] = useState("Q1");
+  const initialPeriod = useMemo(() => getCurrentPeriod(), []);
+  const [selectedYear, setSelectedYear] = useState<string>(() => initialPeriod.year);
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(() => initialPeriod.quarter);
   
   // Top Card Summary Period: affects only the top card
   const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
@@ -177,7 +214,7 @@ export default function QualityDashboard({
   }, [isQaUser, userProfile]);
 
   const [activeSectionId, setActiveSectionId] = useState<string>(defaultSectionId);
-  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(() => initialPeriod.week);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "idle">("idle");
@@ -1507,7 +1544,14 @@ export default function QualityDashboard({
               return (
                 <button
                   key={q.id}
-                  onClick={() => setSelectedQuarter(q.id)}
+                  onClick={() => {
+                    setSelectedQuarter(q.id);
+                    if (q.id === initialPeriod.quarter && selectedYear === initialPeriod.year) {
+                      setSelectedWeek(initialPeriod.week);
+                    } else {
+                      setSelectedWeek(1);
+                    }
+                  }}
                   className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                     isSel
                       ? "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]"
@@ -1544,17 +1588,25 @@ export default function QualityDashboard({
           <div className="flex items-center gap-1 shrink-0">
             {weeksList.map(w => {
               const isSel = selectedWeek === w;
+              const isCurrentCalendarWeek = selectedYear === initialPeriod.year && selectedQuarter === initialPeriod.quarter && w === initialPeriod.week;
               return (
                 <button
                   key={w}
                   onClick={() => setSelectedWeek(w)}
-                  className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                     isSel
                       ? "bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]"
                       : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60"
                   }`}
                 >
-                  Week {w}
+                  <span>Week {w}</span>
+                  {isCurrentCalendarWeek && (
+                    <span className={`px-1.5 py-0.5 text-[8px] font-extrabold rounded-md uppercase tracking-wider ${
+                      isSel ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-950 text-[#1C6B53] dark:text-emerald-300"
+                    }`}>
+                      Current
+                    </span>
+                  )}
                 </button>
               );
             })}
