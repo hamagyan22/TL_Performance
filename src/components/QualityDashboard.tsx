@@ -1055,7 +1055,7 @@ export default function QualityDashboard({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-200">
+                  <span className="text-[11px] font-bold text-emerald-200">
                     QA Evaluator Performance
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white font-bold">
@@ -1146,11 +1146,11 @@ export default function QualityDashboard({
             </div>
           </div>
 
-          {/* Metric KPI Cards Grid: Title Case, No "Audit", Quality Focus */}
+          {/* Metric KPI Cards Grid: Title Case, No "Audit", Quality Focus, Top QA Agent at Far Right */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
             {/* 1. Quality Avg */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Quality Avg</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Quality Avg</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "—"}
               </div>
@@ -1159,7 +1159,7 @@ export default function QualityDashboard({
 
             {/* 2. Completed Weeks */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Completed Weeks</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Completed Weeks</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.weeksCount} / {teamQualityStats.totalWeeksInPeriod}
               </div>
@@ -1168,38 +1168,38 @@ export default function QualityDashboard({
 
             {/* 3. Planned Quality */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Planned Quality</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Planned Quality</div>
               <div className="text-xl sm:text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.totalCallsAudited} / {teamQualityStats.totalTargetCalls}
               </div>
               <div className="text-[9px] text-emerald-300 font-medium">{teamQualityStats.auditProgressPercent}% Completed</div>
             </div>
 
-            {/* 4. Top QA Agent */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between col-span-2">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Top QA Agent</div>
-              <div className="text-sm sm:text-base font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
-                {teamQualityStats.topAgent}
-              </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Highest Quarterly Score</div>
-            </div>
-
-            {/* 5. Inbound Quality */}
+            {/* 4. Inbound Quality */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Inbound Quality</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Inbound Quality</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.inboundCount}
               </div>
               <div className="text-[9px] text-emerald-300 font-medium">6 Calls/Week</div>
             </div>
 
-            {/* 6. Outbound Avg */}
+            {/* 5. Outbound Avg */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Outbound Avg</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Outbound Avg</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.outboundAvg !== "-" ? `${teamQualityStats.outboundAvg}%` : "—"}
               </div>
               <div className="text-[9px] text-emerald-300 font-medium">1 Call/Week</div>
+            </div>
+
+            {/* 6. Top QA Agent (Moved to the Far Right) */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between col-span-2">
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Top QA Agent</div>
+              <div className="text-sm sm:text-base font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
+                {teamQualityStats.topAgent}
+              </div>
+              <div className="text-[9px] text-emerald-300 font-medium">Highest Quarterly Score</div>
             </div>
           </div>
         </div>
@@ -1316,49 +1316,49 @@ export default function QualityDashboard({
                   <th className="sticky left-0 bg-gray-100 dark:bg-gray-800 z-20 px-5 py-3.5 min-w-[210px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
                     Agent
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[85px]">
+                  <th className="px-2.5 py-3 text-center min-w-[100px]">
                     <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                       <PhoneIncoming size={12} />
                       <span>Call {callBase + 1}</span>
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[85px]">
+                  <th className="px-2.5 py-3 text-center min-w-[100px]">
                     <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                       <PhoneIncoming size={12} />
                       <span>Call {callBase + 2}</span>
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[85px]">
+                  <th className="px-2.5 py-3 text-center min-w-[100px]">
                     <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                       <PhoneIncoming size={12} />
                       <span>Call {callBase + 3}</span>
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[85px]">
+                  <th className="px-2.5 py-3 text-center min-w-[100px]">
                     <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                       <PhoneIncoming size={12} />
                       <span>Call {callBase + 4}</span>
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[85px]">
+                  <th className="px-2.5 py-3 text-center min-w-[100px]">
                     <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                       <PhoneIncoming size={12} />
                       <span>Call {callBase + 5}</span>
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[85px]">
+                  <th className="px-2.5 py-3 text-center min-w-[100px]">
                     <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                       <PhoneIncoming size={12} />
                       <span>Call {callBase + 6}</span>
                     </div>
                   </th>
-                  <th className="px-3 py-3 text-center min-w-[95px] bg-amber-100/70 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border-x border-amber-200 dark:border-amber-900/60 font-bold">
+                  <th className="px-3 py-3 text-center min-w-[110px] bg-amber-100/70 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border-x border-amber-200 dark:border-amber-900/60 font-bold">
                     <div className="flex items-center justify-center gap-1">
                       <PhoneOutgoing size={12} />
                       <span>Outbound</span>
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-center min-w-[110px] bg-[#1C6B53] text-white font-black">
+                  <th className="px-4 py-3 text-center min-w-[120px] bg-[#1C6B53] text-white font-black">
                     Week {selectedWeek} Score
                   </th>
                 </tr>
@@ -1402,7 +1402,7 @@ export default function QualityDashboard({
                           </div>
                         </td>
 
-                        {/* 6 Inbound Call Inputs with Note Popover & Red Corner Mark */}
+                        {/* 6 Inbound Call Inputs with Modern Larger Styling & Visible Note Spot */}
                         {[1, 2, 3, 4, 5, 6].map(cNum => {
                           const callIndex = callBase + cNum;
                           const key = `w${selectedWeek}_call_${callIndex}`;
@@ -1413,13 +1413,13 @@ export default function QualityDashboard({
                           const isNA = val.toUpperCase().includes("N/A");
 
                           return (
-                            <td key={cNum} className="p-1.5 text-center">
-                              <div className="relative inline-block">
-                                {/* Red Corner Triangle Mark (Matching Image 1: media_1789757871116.png) */}
+                            <td key={cNum} className="p-2 text-center">
+                              <div className="relative inline-block group">
+                                {/* Red Corner Triangle Mark (Visible when note exists) */}
                                 {hasNote && (
                                   <div 
                                     onClick={() => handleOpenNote(csrName, key, `Call ${callIndex}`)}
-                                    className="absolute top-0 left-0 w-0 h-0 border-t-[8px] border-r-[8px] border-r-transparent border-t-red-500 rounded-tl-lg cursor-pointer z-10" 
+                                    className="absolute top-0 left-0 w-0 h-0 border-t-[9px] border-r-[9px] border-r-transparent border-t-red-500 rounded-tl-xl cursor-pointer z-10" 
                                     title={`Note: ${note}`}
                                   />
                                 )}
@@ -1430,35 +1430,35 @@ export default function QualityDashboard({
                                   onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
                                   onDoubleClick={() => handleOpenNote(csrName, key, `Call ${callIndex}`)}
                                   placeholder="-"
-                                  className={`w-14 h-8 text-center rounded-xl font-bold text-xs outline-none transition shadow-xs ${
+                                  className={`w-18 sm:w-20 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
                                     isV
-                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                      ? "bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
                                       : isNA
-                                      ? "bg-gray-200/60 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/20"
+                                      ? "bg-gray-100 dark:bg-gray-800/80 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700"
+                                      : "bg-white dark:bg-gray-800/90 border border-gray-200/90 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:border-emerald-400 dark:hover:border-emerald-500/70 focus:border-[#1C6B53] dark:focus:border-emerald-400 focus:ring-2 focus:ring-[#1C6B53]/20 dark:focus:ring-emerald-400/20"
                                   }`}
                                 />
 
-                                {/* Subtle Note Trigger on Hover/Focus */}
+                                {/* Visible Note Spot on Cell */}
                                 <button
                                   type="button"
                                   onClick={() => handleOpenNote(csrName, key, `Call ${callIndex}`)}
-                                  className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                                  className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
                                     hasNote
-                                      ? "bg-red-500 text-white hover:bg-red-600 scale-100"
-                                      : "opacity-0 hover:opacity-100 focus:opacity-100 bg-gray-200 hover:bg-[#1C6B53] text-gray-600 hover:text-white dark:bg-gray-700 dark:hover:bg-emerald-500 scale-90"
+                                      ? "bg-red-500 text-white ring-2 ring-white dark:ring-gray-900 hover:bg-red-600 scale-100 z-10"
+                                      : "bg-gray-100 hover:bg-[#1C6B53] dark:bg-gray-700 text-gray-400 hover:text-white dark:text-gray-400 ring-1 ring-gray-200/90 dark:ring-gray-600/70 hover:scale-110 opacity-70 group-hover:opacity-100 z-10"
                                   }`}
                                   title={hasNote ? `Note: ${note}` : "Add Note"}
                                 >
-                                  <FileText size={7} />
+                                  <FileText size={8} />
                                 </button>
                               </div>
                             </td>
                           );
                         })}
 
-                        {/* 1 Outbound Call Input with Note Popover & Red Corner Mark */}
-                        <td className="p-1.5 text-center bg-amber-50/40 dark:bg-amber-950/20 border-x border-amber-200/60 dark:border-amber-900/40">
+                        {/* 1 Outbound Call Input with Modern Larger Styling & Visible Note Spot */}
+                        <td className="p-2 text-center bg-amber-50/40 dark:bg-amber-950/20 border-x border-amber-200/60 dark:border-amber-900/40">
                           {(() => {
                             const key = `w${selectedWeek}_outbound`;
                             const val = currentScores[key] || "";
@@ -1468,11 +1468,11 @@ export default function QualityDashboard({
                             const isNA = val.toUpperCase().includes("N/A");
 
                             return (
-                              <div className="relative inline-block">
+                              <div className="relative inline-block group">
                                 {hasNote && (
                                   <div 
                                     onClick={() => handleOpenNote(csrName, key, "Outbound Call")}
-                                    className="absolute top-0 left-0 w-0 h-0 border-t-[8px] border-r-[8px] border-r-transparent border-t-red-500 rounded-tl-lg cursor-pointer z-10" 
+                                    className="absolute top-0 left-0 w-0 h-0 border-t-[9px] border-r-[9px] border-r-transparent border-t-red-500 rounded-tl-xl cursor-pointer z-10" 
                                     title={`Note: ${note}`}
                                   />
                                 )}
@@ -1483,26 +1483,26 @@ export default function QualityDashboard({
                                   onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
                                   onDoubleClick={() => handleOpenNote(csrName, key, "Outbound Call")}
                                   placeholder="-"
-                                  className={`w-16 h-8 text-center rounded-xl font-black text-xs outline-none transition shadow-xs ${
+                                  className={`w-20 sm:w-22 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
                                     isV
-                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                      ? "bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
                                       : isNA
-                                      ? "bg-gray-200/60 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/20"
+                                      ? "bg-gray-100 dark:bg-gray-800/80 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700"
+                                      : "bg-white dark:bg-gray-800/90 border border-amber-200/90 dark:border-amber-900/50 text-gray-900 dark:text-gray-100 hover:border-amber-400 focus:border-[#1C6B53] dark:focus:border-emerald-400 focus:ring-2 focus:ring-[#1C6B53]/20"
                                   }`}
                                 />
 
                                 <button
                                   type="button"
                                   onClick={() => handleOpenNote(csrName, key, "Outbound Call")}
-                                  className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                                  className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
                                     hasNote
-                                      ? "bg-red-500 text-white hover:bg-red-600 scale-100"
-                                      : "opacity-0 hover:opacity-100 focus:opacity-100 bg-gray-200 hover:bg-[#1C6B53] text-gray-600 hover:text-white dark:bg-gray-700 dark:hover:bg-emerald-500 scale-90"
+                                      ? "bg-red-500 text-white ring-2 ring-white dark:ring-gray-900 hover:bg-red-600 scale-100 z-10"
+                                      : "bg-amber-100 hover:bg-[#1C6B53] dark:bg-gray-700 text-amber-700 hover:text-white dark:text-gray-400 ring-1 ring-amber-200 dark:ring-gray-600 hover:scale-110 opacity-70 group-hover:opacity-100 z-10"
                                   }`}
                                   title={hasNote ? `Note: ${note}` : "Add Note"}
                                 >
-                                  <FileText size={7} />
+                                  <FileText size={8} />
                                 </button>
                               </div>
                             );
@@ -1511,7 +1511,7 @@ export default function QualityDashboard({
 
                         {/* Auto-calculated Week Score */}
                         <td className="p-2 text-center font-black text-sm bg-emerald-50/50 dark:bg-emerald-950/30">
-                          <span className={`inline-block px-2.5 py-1 rounded-xl text-xs font-black shadow-2xs ${
+                          <span className={`inline-block px-3 py-1.5 rounded-xl text-xs font-black shadow-2xs ${
                             weekAvg === "V"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
                               : weekAvg !== "-"
