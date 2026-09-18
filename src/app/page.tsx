@@ -2731,19 +2731,19 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Manage Team / System Config (ONLY FOR ADMIN: Mohammed Dlshad) */}
+              {/* Manage Team / System Settings (ONLY FOR ADMIN: Mohammed Dlshad) */}
               {isAdmin && (
                 <>
                   <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
                   <button
                     onClick={openManageModal}
                     className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
-                    title="System Configuration"
+                    title="Settings"
                   >
                     <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
                       <Settings size={13} />
                     </div>
-                    <span className="hidden xs:inline sm:inline">Config</span>
+                    <span className="hidden xs:inline sm:inline">Settings</span>
                   </button>
                 </>
               )}
@@ -2761,9 +2761,6 @@ export default function Dashboard() {
                       <Award size={13} />
                     </div>
                     <span className="hidden xs:inline sm:inline">Quality</span>
-                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 uppercase tracking-widest hidden sm:inline">
-                      {isAdmin ? 'Admin' : 'Manager'}
-                    </span>
                   </button>
                 </>
               )}
@@ -3133,7 +3130,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="mt-4 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-          Agent names are fixed from the roster. Use "System Config" to edit members or columns. Data auto-saves when you click out of a field.
+          Agent names are fixed from the roster. Use "Settings" to edit members or columns. Data auto-saves when you click out of a field.
         </div>
       </div>
 
