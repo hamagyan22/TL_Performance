@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { auth, db } from "@/lib/firebaseClient";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { collection, query, where, getDocs, getDoc, updateDoc, addDoc, deleteDoc, doc, setDoc, onSnapshot } from "firebase/firestore";
-import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed, Timer, PhoneIncoming, PhoneOutgoing, Copy } from "lucide-react";
+import { Search, Trash2, UserPlus, UserMinus, Users, Moon, Sun, LogOut, Settings, Plus, X, Edit2, Briefcase, Columns, ChevronDown, Save, ShieldCheck, Mail, Lock, ArrowLeft, ArrowRight, Eye, EyeOff, LayoutDashboard, Sparkles, Check, Calendar, Award, CheckCircle2, TrendingUp, Clock, PhoneOff, Activity, PhoneCall, PhoneMissed, Timer, PhoneIncoming, PhoneOutgoing, Copy, Smartphone, Download, Share2 } from "lucide-react";
 
 type TeamName = 'Younis Kamal Team' | 'Ankido Buya Team' | 'Mohammed Dlshad Team';
 const TEAMS: TeamName[] = ['Younis Kamal Team', 'Ankido Buya Team', 'Mohammed Dlshad Team'];
@@ -191,6 +191,149 @@ const KPI_META: Record<string, { icon: any; color: string; bgLight: string; bgDa
     label: 'Outbound Interactions'
   },
 };
+
+function PwaInstallBanner() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(true);
+  const [showIosModal, setShowIosModal] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (sessionStorage.getItem('pwa_banner_dismissed') === 'true') {
+      setDismissed(true);
+    }
+
+    const checkStandalone = 
+      window.matchMedia('(display-mode: standalone)').matches || 
+      (window.navigator as any).standalone === true;
+    setIsStandalone(checkStandalone);
+
+    const ua = window.navigator.userAgent.toLowerCase();
+    setIsIos(/iphone|ipad|ipod/.test(ua));
+
+    const handlePrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
+  }, []);
+
+  if (isStandalone || dismissed) return null;
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice?.outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setDismissed(true);
+      }
+    } else {
+      setShowIosModal(true);
+    }
+  };
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    try {
+      sessionStorage.setItem('pwa_banner_dismissed', 'true');
+    } catch (e) {}
+  };
+
+  return (
+    <>
+      {/* Mobile Floating Install Pill */}
+      <aside aria-label="Install App" className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 z-40 max-w-sm mx-auto sm:mx-0 animate-fadeIn">
+        <div className="bg-white/95 dark:bg-gray-850/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/25 rounded-2xl shadow-xl p-2.5 sm:p-3 flex items-center justify-between gap-3 ring-1 ring-emerald-500/10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img src="/apple-touch-icon.png" alt="App Icon" className="w-9 h-9 rounded-xl object-cover shadow-xs border border-emerald-500/20 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-xs font-black text-gray-900 dark:text-white truncate">
+                FIB Performance App
+              </div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate font-medium">
+                {isIos ? "أضف كـ تطبيق للشاشة الرئيسية" : "تثبيت كـ تطبيق سريع على الموبايل"}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleInstall}
+              className="px-3 py-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white text-[11px] font-bold rounded-xl transition shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer"
+            >
+              <Download size={12} />
+              <span>تثبيت</span>
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg cursor-pointer"
+              title="إغلاق"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* iOS Safari Home Screen Guide Modal */}
+      {showIosModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-5 sm:p-6 w-full max-w-sm shadow-2xl animate-fadeIn text-right" dir="rtl">
+            <div className="flex justify-between items-start mb-4 flex-row-reverse">
+              <button onClick={() => setShowIosModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1">
+                <X size={18} />
+              </button>
+              <div className="flex items-center gap-2.5">
+                <img src="/apple-touch-icon.png" alt="FIB" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                <div>
+                  <h3 className="text-sm font-black text-gray-900 dark:text-white">
+                    تثبيت على الشاشة الرئيسية
+                  </h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    خطوتين للحصول على تجربة التطبيق
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 my-4 text-xs font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700/60">
+                <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-[#1C6B53] dark:text-emerald-400 font-black flex items-center justify-center shrink-0">
+                  1
+                </div>
+                <div className="leading-relaxed">
+                  اضغط على زر المشاركة <span className="font-bold text-[#1C6B53] dark:text-emerald-400 inline-flex items-center gap-0.5">Share <Share2 size={12} className="inline" /></span> في أسفل شاشة Safari.
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700/60">
+                <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-[#1C6B53] dark:text-emerald-400 font-black flex items-center justify-center shrink-0">
+                  2
+                </div>
+                <div className="leading-relaxed">
+                  مرر للأسفل واختر <span className="font-bold text-[#1C6B53] dark:text-emerald-400">"إضافة إلى الشاشة الرئيسية" (Add to Home Screen)</span>.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowIosModal(false)}
+              className="w-full py-2.5 rounded-xl bg-[#1C6B53] text-white text-xs font-bold shadow-md hover:bg-[#155a45] transition cursor-pointer"
+            >
+              فهمت ذلك
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 function AgentDashboard({ 
   userProfile, 
@@ -978,6 +1121,8 @@ function AgentDashboard({
         </div>
       )}
 
+      {/* Mobile PWA Install Floating Banner */}
+      <PwaInstallBanner />
     </div>
   );
 }
@@ -2106,7 +2251,7 @@ export default function Dashboard() {
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-400/20 dark:bg-emerald-600/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#1C6B53]/25 dark:bg-[#1C6B53]/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-[440px] bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 p-7 sm:p-9 relative z-10">
+        <div className="w-full max-w-[440px] bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-3xl sm:rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 p-6 sm:p-9 relative z-10">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-16 h-16 rounded-2xl bg-[#1C6B53]/10 dark:bg-emerald-950 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 mb-4 shadow-inner">
               <ShieldCheck size={32} />
@@ -2203,7 +2348,7 @@ export default function Dashboard() {
           <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#1C6B53]/25 dark:bg-[#1C6B53]/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
 
-          <div className="w-full max-w-[440px] p-8 sm:p-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 relative z-10">
+          <div className="w-full max-w-[440px] p-6 sm:p-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-2xl rounded-3xl sm:rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(28,107,83,0.12)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] border border-white/80 dark:border-emerald-500/20 relative z-10">
             {/* Top Bar with Dark Mode Toggle */}
             <div className="flex justify-end items-center mb-6">
               <button 
@@ -2382,6 +2527,9 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* Mobile PWA Install Floating Banner */}
+          <PwaInstallBanner />
         </div>
       );
     }
@@ -2817,7 +2965,8 @@ export default function Dashboard() {
         {/* Data Table */}
         <div 
           onPaste={handleTablePaste}
-          className={`bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto scrollbar-hide ${isSelecting ? 'select-none cursor-crosshair' : ''}`}
+          className={`bg-[#F9F8F4] dark:bg-gray-900 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm overflow-x-auto scrollbar-hide overscroll-x-contain touch-pan-x ${isSelecting ? 'select-none cursor-crosshair' : ''}`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {errorMsg && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm border-b border-red-100 dark:border-red-800">
@@ -3396,6 +3545,9 @@ export default function Dashboard() {
           <span>{copyToast}</span>
         </div>
       )}
+
+      {/* Mobile PWA Install Floating Banner */}
+      <PwaInstallBanner />
     </div>
   );
 }
