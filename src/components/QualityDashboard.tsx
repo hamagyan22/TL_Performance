@@ -613,6 +613,58 @@ export default function QualityDashboard({
     }
   };
 
+  // Keyboard arrow, Enter, and Tab navigation between score cells
+  const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => {
+    let targetRow = rowIdx;
+    let targetCol = colIdx;
+
+    if (e.key === "ArrowDown" || e.key === "Enter") {
+      e.preventDefault();
+      if (rowIdx < currentCsrs.length - 1) {
+        targetRow = rowIdx + 1;
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (rowIdx > 0) {
+        targetRow = rowIdx - 1;
+      }
+    } else if (e.key === "ArrowRight") {
+      const input = e.currentTarget;
+      const isAtEnd = input.selectionEnd === input.value.length;
+      const isAllSelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+      if (isAtEnd || isAllSelected || !input.value || input.value === "-") {
+        e.preventDefault();
+        if (colIdx < 6) {
+          targetCol = colIdx + 1;
+        } else if (rowIdx < currentCsrs.length - 1) {
+          targetRow = rowIdx + 1;
+          targetCol = 0;
+        }
+      }
+    } else if (e.key === "ArrowLeft") {
+      const input = e.currentTarget;
+      const isAtStart = input.selectionStart === 0;
+      const isAllSelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+      if (isAtStart || isAllSelected || !input.value || input.value === "-") {
+        e.preventDefault();
+        if (colIdx > 0) {
+          targetCol = colIdx - 1;
+        } else if (rowIdx > 0) {
+          targetRow = rowIdx - 1;
+          targetCol = 6;
+        }
+      }
+    }
+
+    if (targetRow !== rowIdx || targetCol !== colIdx) {
+      const nextInput = document.getElementById(`qa_cell_${targetRow}_${targetCol}`) as HTMLInputElement | null;
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      }
+    }
+  };
+
   // Export Week Data to PDF (Replacing Clear Week Data button)
   const handleExportPDF = () => {
     const rowsData = currentCsrs.map((csrName, idx) => {
@@ -1460,7 +1512,7 @@ export default function QualityDashboard({
                     </td>
                   </tr>
                 ) : (
-                  currentCsrs.map(csrName => {
+                  currentCsrs.map((csrName, agentIdx) => {
                     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
                     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
                     const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
@@ -1490,8 +1542,8 @@ export default function QualityDashboard({
                           </div>
                         </td>
 
-                        {/* 6 Inbound Call Inputs with Modern Larger Styling & Visible Note Spot */}
-                        {[1, 2, 3, 4, 5, 6].map(cNum => {
+                        {/* 6 Inbound Call Inputs with Modern Larger Styling & Arrow Key Navigation */}
+                        {[1, 2, 3, 4, 5, 6].map((cNum, cIdx) => {
                           const callIndex = callBase + cNum;
                           const key = `w${selectedWeek}_call_${callIndex}`;
                           const val = currentScores[key] || "";
@@ -1513,10 +1565,12 @@ export default function QualityDashboard({
                                 )}
 
                                 <input
+                                  id={`qa_cell_${agentIdx}_${cIdx}`}
                                   type="text"
                                   value={val}
                                   onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
-                                  onDoubleClick={() => handleOpenNote(csrName, key, `Call ${callIndex}`)}
+                                  onKeyDown={(e) => handleCellKeyDown(e, agentIdx, cIdx)}
+                                  onFocus={(e) => e.target.select()}
                                   placeholder="-"
                                   className={`w-18 sm:w-20 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
                                     isV
@@ -1545,7 +1599,7 @@ export default function QualityDashboard({
                           );
                         })}
 
-                        {/* 1 Outbound Call Input with Modern Larger Styling & Visible Note Spot */}
+                        {/* 1 Outbound Call Input with Modern Larger Styling & Arrow Key Navigation */}
                         <td className="p-2 text-center bg-amber-50/40 dark:bg-amber-950/20 border-x border-amber-200/60 dark:border-amber-900/40">
                           {(() => {
                             const key = `w${selectedWeek}_outbound`;
@@ -1566,10 +1620,12 @@ export default function QualityDashboard({
                                 )}
 
                                 <input
+                                  id={`qa_cell_${agentIdx}_6`}
                                   type="text"
                                   value={val}
                                   onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
-                                  onDoubleClick={() => handleOpenNote(csrName, key, "Outbound Call")}
+                                  onKeyDown={(e) => handleCellKeyDown(e, agentIdx, 6)}
+                                  onFocus={(e) => e.target.select()}
                                   placeholder="-"
                                   className={`w-20 sm:w-22 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
                                     isV
