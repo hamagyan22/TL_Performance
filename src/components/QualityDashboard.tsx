@@ -6,12 +6,13 @@ import { collection, query, where, getDocs, doc, setDoc, onSnapshot } from "fire
 import { 
   Award, CheckCircle2, Calendar, TrendingUp, ArrowLeft, Search, Plus, 
   Trash2, Users, Check, Copy, Sparkles, ShieldCheck, Save, Download, 
-  Sun, Moon, Filter, Layers, Eye, Grid, Columns, ChevronDown, CheckCheck, RefreshCw
+  Sun, Moon, Filter, Layers, Eye, Grid, Columns, ChevronDown, CheckCheck, RefreshCw, LogOut
 } from "lucide-react";
 
 interface QualityDashboardProps {
   userProfile: any;
   onBack: () => void;
+  onLogout?: () => void;
   isDarkMode?: boolean;
   toggleDarkMode?: () => void;
 }
@@ -107,12 +108,27 @@ function computeWeekAvg(scores: Record<string, string>, weekNum: number): string
 export default function QualityDashboard({
   userProfile,
   onBack,
+  onLogout,
   isDarkMode = false,
   toggleDarkMode
 }: QualityDashboardProps) {
+  const isQaUser = userProfile?.role === "qa";
+  const isAdmin = userProfile?.role === "admin" || userProfile?.email?.toLowerCase() === "mohammed.dlshad0@gmail.com";
+
   const [selectedYear, setSelectedYear] = useState("2026");
   const [selectedQuarter, setSelectedQuarter] = useState("Q1");
-  const [activeSectionId, setActiveSectionId] = useState<string>("all");
+  
+  // Default section based on user
+  const initialSection = useMemo(() => {
+    if (isQaUser) {
+      const name = (userProfile?.name || userProfile?.evaluator || "").toLowerCase();
+      if (name.includes("lara")) return "lara_kamil";
+      if (name.includes("mohammed") || name.includes("jihad")) return "mohammed_jihad";
+    }
+    return "all";
+  }, [isQaUser, userProfile]);
+
+  const [activeSectionId, setActiveSectionId] = useState<string>(initialSection);
   const [viewMode, setViewMode] = useState<"all_weeks" | "single_week">("all_weeks");
   const [focusedWeek, setFocusedWeek] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -322,13 +338,15 @@ export default function QualityDashboard({
         {/* Top Header & Brand Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 sm:pb-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-3.5">
-            <button
-              onClick={onBack}
-              className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-xs transition text-gray-600 dark:text-gray-300 hover:text-[#1C6B53] dark:hover:text-emerald-400 active:scale-95 cursor-pointer"
-              title="Return to Main Dashboard"
-            >
-              <ArrowLeft size={18} />
-            </button>
+            {!isQaUser && (
+              <button
+                onClick={onBack}
+                className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-xs transition text-gray-600 dark:text-gray-300 hover:text-[#1C6B53] dark:hover:text-emerald-400 active:scale-95 cursor-pointer"
+                title="Return to Main Dashboard"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
 
             <img src="/logo.webp" alt="FIB Logo" className="h-10 sm:h-12 w-auto object-contain" />
             <div className="h-8 sm:h-10 w-[1.5px] bg-gray-200 dark:bg-gray-700" />
@@ -338,9 +356,15 @@ export default function QualityDashboard({
                 <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
                   Quality Assurance Scorecards
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs">
-                  Admin Exclusive
-                </span>
+                {isQaUser ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/70 text-[#1C6B53] dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-xs">
+                    QA Evaluator • {userProfile?.name || userProfile?.evaluator || "Evaluator"}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 shadow-xs">
+                    Admin Exclusive
+                  </span>
+                )}
               </div>
               <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
                 12-Week Quality Evaluation Matrix & Performance Tracking
@@ -381,13 +405,24 @@ export default function QualityDashboard({
               </button>
             )}
 
-            <button
-              onClick={onBack}
-              className="px-3.5 py-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white text-xs font-bold rounded-xl shadow-md shadow-[#1C6B53]/20 transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
-            >
-              <ArrowLeft size={14} />
-              <span>Back to Dashboard</span>
-            </button>
+            {isQaUser ? (
+              <button
+                onClick={onLogout || onBack}
+                className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md shadow-red-600/20 transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut size={14} />
+                <span>Sign Out</span>
+              </button>
+            ) : (
+              <button
+                onClick={onBack}
+                className="px-3.5 py-1.5 bg-[#1C6B53] hover:bg-[#155a45] text-white text-xs font-bold rounded-xl shadow-md shadow-[#1C6B53]/20 transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Dashboard</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -2563,11 +2563,24 @@ export default function Dashboard() {
       );
     }
 
+    if (userProfile?.role === 'qa') {
+      return (
+        <QualityDashboard 
+          userProfile={userProfile} 
+          onBack={handleLogout} 
+          onLogout={handleLogout}
+          isDarkMode={isDarkMode}
+          toggleDarkMode={toggleDarkMode}
+        />
+      );
+    }
+
     if (showQualityView && isAdmin) {
       return (
         <QualityDashboard 
           userProfile={userProfile} 
           onBack={() => setShowQualityView(false)} 
+          onLogout={handleLogout}
           isDarkMode={isDarkMode}
           toggleDarkMode={toggleDarkMode}
         />
