@@ -1478,6 +1478,8 @@ export default function Dashboard() {
         const isJalal = emailLower === 'jalal.burghol@agent.com';
         const isYounis = emailLower === 'younis.kamal@agent.com';
         const isAnkido = emailLower === 'ankido.buya@agent.com';
+        const isLara = emailLower === 'lara.kamil@agent.com';
+        const isMohammedJihad = emailLower === 'mohammed.jihad@agent.com';
         const isAgent = emailLower.endsWith('@agent.com');
 
         // Instant optimistic role identification: Mohammed Dlshad (The Admin) is EXEMPT
@@ -1498,7 +1500,7 @@ export default function Dashboard() {
           return;
         }
 
-        // For ALL other users (Manager Jalal Burghol, Team Leaders Younis & Ankido, Agents):
+        // For ALL other users (Manager Jalal Burghol, Team Leaders Younis & Ankido, QA Lara & Mohammed Jihad, Agents):
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           const existingData = userDoc.exists() ? userDoc.data() : {};
@@ -1521,6 +1523,14 @@ export default function Dashboard() {
             name = name || 'Ankido Buya';
             team = 'Ankido Buya Team';
             setSelectedTeam('Ankido Buya Team');
+          } else if (isLara) {
+            role = 'qa';
+            name = name || 'Lara Kamil';
+            team = 'Ankido Buya Team';
+          } else if (isMohammedJihad) {
+            role = 'qa';
+            name = name || 'Mohammed Jihad';
+            team = 'Younis Kamal Team';
           } else if (!role) {
             role = isAgent ? 'agent' : 'tl';
           }
@@ -1559,11 +1569,11 @@ export default function Dashboard() {
 
         } catch (e) {
           console.error("Error fetching user profile:", e);
-          const fallbackRole = isJalal ? 'manager' : (isYounis || isAnkido ? 'tl' : (isAgent ? 'agent' : 'tl'));
+          const fallbackRole = isJalal ? 'manager' : (isYounis || isAnkido ? 'tl' : (isLara || isMohammedJihad ? 'qa' : (isAgent ? 'agent' : 'tl')));
           setUserProfile({
             role: fallbackRole,
-            name: isJalal ? 'Jalal Burghol' : (isYounis ? 'Younis Kamal' : (isAnkido ? 'Ankido Buya' : user.email?.split('@')[0])),
-            team: isYounis ? 'Younis Kamal Team' : (isAnkido ? 'Ankido Buya Team' : (isJalal ? 'All' : undefined)),
+            name: isJalal ? 'Jalal Burghol' : (isYounis ? 'Younis Kamal' : (isAnkido ? 'Ankido Buya' : (isLara ? 'Lara Kamil' : (isMohammedJihad ? 'Mohammed Jihad' : user.email?.split('@')[0])))),
+            team: isYounis ? 'Younis Kamal Team' : (isAnkido ? 'Ankido Buya Team' : (isLara ? 'Ankido Buya Team' : (isMohammedJihad ? 'Younis Kamal Team' : (isJalal ? 'All' : undefined)))),
             email: user.email,
             isAdmin: false,
             passwordUpdated: false,
