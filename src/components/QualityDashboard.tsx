@@ -202,6 +202,8 @@ export default function QualityDashboard({
   const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
   // Selected month for top card (null = show full period, 0-11 = Jan-Dec)
   const [selectedCardMonth, setSelectedCardMonth] = useState<number | null>(null);
+  // Selected month for the agents table (null = show selected week, 0-11 = show monthly avg)
+  const [tableMonthFilter, setTableMonthFilter] = useState<number | null>(null);
 
   const defaultSectionId = useMemo(() => {
     const email = (userProfile?.email || "").toLowerCase();
@@ -610,6 +612,53 @@ export default function QualityDashboard({
   }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedCardMonth, evalData, isChatTeam]);
 
   const callBase = (selectedWeek - 1) * 6;
+
+  // Per-agent average quality scores for the selected table month
+  const tableMonthAgentAvgs = useMemo(() => {
+    if (tableMonthFilter === null) return {};
+    const { quarter, weekStart, weekEnd } = getMonthWeekRange(tableMonthFilter);
+    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const result: Record<string, string> = {};
+
+    currentCsrs.forEach(csrName => {
+      const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const docId = `${selectedYear}_${quarter}_${sectionSlug}_${slug}`;
+      const scores = evalData[docId]?.scores || {};
+      let sum = 0; let cnt = 0;
+
+      for (let w = weekStart; w <= weekEnd; w++) {
+        const weekBase = (w - 1) * 6;
+        const weekHasChat7 = getHasChat7(isChatTeam, selectedYear, quarter, w);
+
+        if (isChatTeam) {
+          for (let c = 1; c <= 6; c++) {
+            const val = scores[`w${w}_chat_${c}`] ?? scores[`w${w}_chat_${weekBase + c}`] ?? scores[`w${w}_call_${c}`];
+            const v = parseFloat(String(val || ""));
+            if (!isNaN(v)) { sum += v; cnt++; }
+          }
+          if (weekHasChat7) {
+            const v = parseFloat(String(scores[`w${w}_chat_7`] ?? scores[`w${w}_outbound`] ?? ""));
+            if (!isNaN(v)) { sum += v; cnt++; }
+          } else {
+            const v = parseFloat(String(scores[`w${w}_outbound`] ?? ""));
+            if (!isNaN(v)) { sum += v; cnt++; }
+          }
+        } else {
+          for (let c = 1; c <= 6; c++) {
+            const val = scores[`w${w}_call_${weekBase + c}`] ?? scores[`w${w}_call_${c}`];
+            const v = parseFloat(String(val || ""));
+            if (!isNaN(v)) { sum += v; cnt++; }
+          }
+          const outV = parseFloat(String(scores[`w${w}_outbound`] ?? ""));
+          if (!isNaN(outV)) { sum += outV; cnt++; }
+        }
+      }
+
+      result[csrName] = cnt > 0 ? (sum / cnt).toFixed(1) : "-";
+    });
+
+    return result;
+  }, [tableMonthFilter, currentCsrs, currentSection, selectedYear, evalData, isChatTeam]);
 
   // Profile modal opening
   const handleOpenProfile = () => {
@@ -1616,16 +1665,22 @@ export default function QualityDashboard({
 
           <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
-          {/* Search Agent Input */}
+          {/* Month Filter Dropdown */}
           <div className="relative shrink-0">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-7 pr-2.5 py-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/80 dark:bg-gray-900/60 focus:outline-none focus:border-[#1C6B53] text-xs w-28 sm:w-40 font-medium"
-            />
+            <select
+              value={tableMonthFilter === null ? "" : String(tableMonthFilter)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setTableMonthFilter(val === "" ? null : parseInt(val, 10));
+              }}
+              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:border-[#1C6B53] cursor-pointer"
+            >
+              <option value="">All Weeks</option>
+              {MONTH_NAMES.map((name, idx) => (
+                <option key={idx} value={String(idx)}>{name}</option>
+              ))}
+            </select>
+            <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
           </div>
 
           <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap px-1 shrink-0">
@@ -1721,7 +1776,7 @@ export default function QualityDashboard({
                     </th>
                   )}
                   <th className="px-4 py-3 text-center min-w-[120px] bg-[#1C6B53] text-white font-black">
-                    Week {selectedWeek} Score
+                    {tableMonthFilter !== null ? `${MONTH_NAMES[tableMonthFilter]} Avg` : `Week ${selectedWeek} Score`}
                   </th>
                 </tr>
               </thead>
@@ -1936,17 +1991,24 @@ export default function QualityDashboard({
                           </td>
                         )}
 
-                        {/* Auto-calculated Week Score */}
+                        {/* Auto-calculated Week Score (or Monthly Avg when month filter active) */}
                         <td className="p-2 text-center font-black text-sm bg-emerald-50/50 dark:bg-emerald-950/30">
-                          <span className={`inline-block px-3 py-1.5 rounded-xl text-xs font-black shadow-2xs ${
-                            weekAvg === "V"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
-                              : weekAvg !== "-"
-                              ? "bg-white dark:bg-gray-800 text-[#1C6B53] dark:text-emerald-300 border border-emerald-500/20"
-                              : "text-gray-300 dark:text-gray-600 font-normal"
-                          }`}>
-                            {weekAvg !== "-" && weekAvg !== "V" ? `${weekAvg}%` : weekAvg}
-                          </span>
+                          {(() => {
+                            const displayVal = tableMonthFilter !== null
+                              ? (tableMonthAgentAvgs[csrName] ?? "-")
+                              : weekAvg;
+                            return (
+                              <span className={`inline-block px-3 py-1.5 rounded-xl text-xs font-black shadow-2xs ${
+                                displayVal === "V"
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
+                                  : displayVal !== "-"
+                                  ? "bg-white dark:bg-gray-800 text-[#1C6B53] dark:text-emerald-300 border border-emerald-500/20"
+                                  : "text-gray-300 dark:text-gray-600 font-normal"
+                              }`}>
+                                {displayVal !== "-" && displayVal !== "V" ? `${displayVal}%` : displayVal}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
@@ -2026,26 +2088,37 @@ export default function QualityDashboard({
                       );
                     })()}
 
-                    {/* Total week team average */}
+                    {/* Total week/month team average */}
                     {(() => {
-                      const weekAverages: number[] = [];
-                      currentCsrs.forEach(csrName => {
-                        const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                        const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                        const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
-                        const scores = evalData[docId]?.scores || {};
-                        const avgStr = computeWeekAvg(scores, selectedWeek, isChatTeam, selectedYear, selectedQuarter);
-                        if (avgStr !== "-" && avgStr !== "V") {
-                          const n = parseFloat(avgStr);
-                          if (!isNaN(n)) weekAverages.push(n);
-                        }
-                      });
-                      const totalWeekAvg = weekAverages.length > 0
-                        ? (weekAverages.reduce((a, b) => a + b, 0) / weekAverages.length).toFixed(1)
-                        : "-";
+                      let totalAvg = "-";
+                      if (tableMonthFilter !== null) {
+                        // Monthly avg of all agents
+                        const vals = Object.values(tableMonthAgentAvgs)
+                          .map(v => parseFloat(v))
+                          .filter(n => !isNaN(n));
+                        totalAvg = vals.length > 0
+                          ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
+                          : "-";
+                      } else {
+                        const weekAverages: number[] = [];
+                        currentCsrs.forEach(csrName => {
+                          const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+                          const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+                          const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+                          const scores = evalData[docId]?.scores || {};
+                          const avgStr = computeWeekAvg(scores, selectedWeek, isChatTeam, selectedYear, selectedQuarter);
+                          if (avgStr !== "-" && avgStr !== "V") {
+                            const n = parseFloat(avgStr);
+                            if (!isNaN(n)) weekAverages.push(n);
+                          }
+                        });
+                        totalAvg = weekAverages.length > 0
+                          ? (weekAverages.reduce((a, b) => a + b, 0) / weekAverages.length).toFixed(1)
+                          : "-";
+                      }
                       return (
                         <td className="p-2 text-center font-black text-sm bg-emerald-200/60 dark:bg-emerald-900/60 text-[#1C6B53] dark:text-emerald-300">
-                          {totalWeekAvg !== "-" ? `${totalWeekAvg}%` : "-"}
+                          {totalAvg !== "-" ? `${totalAvg}%` : "-"}
                         </td>
                       );
                     })()}
