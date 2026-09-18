@@ -202,16 +202,16 @@ export default function QualityDashboard({
   const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
 
   const defaultSectionId = useMemo(() => {
-    if (isQaUser) {
-      const email = (userProfile?.email || "").toLowerCase();
-      const name = (userProfile?.name || userProfile?.evaluator || "").toLowerCase();
-      if (email.includes("lara") || name.includes("lara")) {
-        return "lara_kamil";
-      }
-      return "mohammed_jihad";
+    const email = (userProfile?.email || "").toLowerCase();
+    const name = (userProfile?.name || userProfile?.evaluator || "").toLowerCase();
+    if (email.includes("dlshad") || name.includes("dlshad")) {
+      return "mohammed_dlshad";
+    }
+    if (email.includes("lara") || name.includes("lara")) {
+      return "lara_kamil";
     }
     return "mohammed_jihad";
-  }, [isQaUser, userProfile]);
+  }, [userProfile]);
 
   const [activeSectionId, setActiveSectionId] = useState<string>(defaultSectionId);
   const [selectedWeek, setSelectedWeek] = useState<number>(() => initialPeriod.week);
