@@ -111,6 +111,8 @@ function computeWeekAvg(
       ];
       const found7Key = possible7Keys.find(k => scores[k] !== undefined && scores[k] !== "") || `w${weekNum}_chat_7`;
       keys.push(found7Key);
+    } else {
+      keys.push(`w${weekNum}_outbound`);
     }
   } else {
     const callBase = (weekNum - 1) * 6;
@@ -399,14 +401,8 @@ export default function QualityDashboard({
       cardPeriodMode === "year" ? 48 :
       (cardPeriodMode === "h1" || cardPeriodMode === "h2") ? 24 : 12;
 
-    // Calculate total target calls / chats dynamically based on team type and week structure
-    let totalTargetCalls = 0;
-    targetQuarters.forEach(qId => {
-      for (let w = 1; w <= 12; w++) {
-        const weeklyTarget = isChatTeam ? (getHasChat7(true, selectedYear, qId, w) ? 7 : 6) : 7;
-        totalTargetCalls += currentCsrs.length * weeklyTarget;
-      }
-    });
+    // 7 calls/chats per week for every agent
+    const totalTargetCalls = currentCsrs.length * 7 * totalWeeksInPeriod;
 
     currentCsrs.forEach(csrName => {
       const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
@@ -452,6 +448,23 @@ export default function QualityDashboard({
                   csrTotals[csrName].sum += num;
                   csrTotals[csrName].count += 1;
                   inboundCount++;
+                  weeksWithData.add(`${qId}_w${w}`);
+                }
+              }
+            } else {
+              const val = scores[`w${w}_outbound`];
+              const valStr = String(val || "").trim().toUpperCase();
+              if (valStr && valStr !== "V" && valStr !== "N/A") {
+                const num = parseFloat(valStr);
+                if (!isNaN(num)) {
+                  totalCallsAudited++;
+                  sumScores += num;
+                  if (num >= 90) passCount++;
+                  if (!csrTotals[csrName]) csrTotals[csrName] = { sum: 0, count: 0 };
+                  csrTotals[csrName].sum += num;
+                  csrTotals[csrName].count += 1;
+                  outboundSum += num;
+                  outboundCount++;
                   weeksWithData.add(`${qId}_w${w}`);
                 }
               }
@@ -724,7 +737,7 @@ export default function QualityDashboard({
   const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => {
     let targetRow = rowIdx;
     let targetCol = colIdx;
-    const maxCol = (!isChatTeam || hasChat7) ? 6 : 5;
+    const maxCol = 6;
 
     if (e.key === "ArrowDown" || e.key === "Enter") {
       e.preventDefault();
@@ -790,7 +803,7 @@ export default function QualityDashboard({
         return { val, note };
       });
 
-      const outboundVal = !isChatTeam
+      const outboundVal = (!isChatTeam || !hasChat7)
         ? { val: scores[`w${selectedWeek}_outbound`] || "-", note: notes[`w${selectedWeek}_outbound`] || "" }
         : null;
 
@@ -826,7 +839,7 @@ export default function QualityDashboard({
 
     let extraColHeader = "";
     let extraColAvg = "-";
-    if (!isChatTeam) {
+    if (!isChatTeam || !hasChat7) {
       const outboundNums: number[] = [];
       currentCsrs.forEach(csrName => {
         const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
@@ -853,7 +866,7 @@ export default function QualityDashboard({
         }
       });
       extraColAvg = chat7Nums.length > 0 ? (chat7Nums.reduce((a, b) => a + b, 0) / chat7Nums.length).toFixed(1) + "%" : "-";
-      extraColHeader = `<th style="width: 75px; background-color: #047857 !important; color: #ffffff;">Chat 7</th>`;
+      extraColHeader = `<th style="width: 60px;">Chat 7</th>`;
     }
 
     const weekAverages: number[] = [];
@@ -1115,7 +1128,7 @@ export default function QualityDashboard({
             </div>
             <div class="meta-item">
               <div class="label">Week Number</div>
-              <div class="val">Week ${selectedWeek} (${isChatTeam ? (hasChat7 ? "Chats 1–7" : "Chats 1–6") : `Calls ${callBase + 1}–${callBase + 6}`})</div>
+              <div class="val">Week ${selectedWeek} (${isChatTeam ? (hasChat7 ? "Chats 1–7" : "Chats 1–6 + Outbound") : `Calls ${callBase + 1}–${callBase + 6} + Outbound`})</div>
             </div>
             <div class="meta-item">
               <div class="label">QA Evaluator</div>
@@ -1152,7 +1165,7 @@ export default function QualityDashboard({
                       ${c.note ? `<br><span class="note-tag">Note</span>` : ''}
                     </td>
                   `).join('')}
-                  ${!isChatTeam && r.outboundVal ? `
+                  ${(!isChatTeam || !hasChat7) && r.outboundVal ? `
                     <td class="outbound-col">
                       ${r.outboundVal.val === 'V' 
                         ? '<span class="badge-v">V</span>' 
@@ -1163,12 +1176,12 @@ export default function QualityDashboard({
                     </td>
                   ` : ''}
                   ${isChatTeam && hasChat7 && r.chat7Val ? `
-                    <td style="background-color: #f0fdf4 !important;">
+                    <td>
                       ${r.chat7Val.val === 'V' 
                         ? '<span class="badge-v">V</span>' 
                         : r.chat7Val.val === '-' 
                         ? '<span class="muted-dash">—</span>' 
-                        : `<span style="font-weight: 800; color: #166534;">${r.chat7Val.val}</span>`}
+                        : `<span style="font-weight: 800; color: #0f172a;">${r.chat7Val.val}</span>`}
                       ${r.chat7Val.note ? `<br><span class="note-tag">Note</span>` : ''}
                     </td>
                   ` : ''}
@@ -1185,11 +1198,11 @@ export default function QualityDashboard({
               <tr class="total-row">
                 <td colspan="2" style="text-align: left; padding-left: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Team Average</td>
                 ${colAverages.map(avg => `<td>${avg === '-' ? '<span class="muted-dash">—</span>' : avg}</td>`).join('')}
-                ${!isChatTeam ? `
+                ${(!isChatTeam || !hasChat7) ? `
                   <td class="outbound-col" style="font-weight: 900; color: #92400e;">${extraColAvg === '-' ? '<span class="muted-dash">—</span>' : extraColAvg}</td>
                 ` : ''}
                 ${isChatTeam && hasChat7 ? `
-                  <td style="font-weight: 900; color: #166534; background-color: #ecfdf5 !important;">${extraColAvg === '-' ? '<span class="muted-dash">—</span>' : extraColAvg}</td>
+                  <td style="font-weight: 900; color: #0f172a;">${extraColAvg === '-' ? '<span class="muted-dash">—</span>' : extraColAvg}</td>
                 ` : ''}
                 <td class="total-avg-cell">${totalWeekTeamAvg}</td>
               </tr>
@@ -1560,8 +1573,8 @@ export default function QualityDashboard({
               <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
                 {isChatTeam 
                   ? (hasChat7 
-                      ? `Chats 1 to 6 (6 Inbound) + Chat 7 Evaluation` 
-                      : `Chats 1 to 6 (6 Inbound Evaluation)`)
+                      ? `Chats 1 to 7 (7 Inbound Evaluations)` 
+                      : `Chats 1 to 6 (6 Inbound) + Outbound Evaluation`)
                   : `Calls ${(selectedWeek - 1) * 6 + 1} to ${(selectedWeek - 1) * 6 + 6} (6 Inbound) + Outbound Evaluation`
                 }
               </span>
@@ -1597,7 +1610,7 @@ export default function QualityDashboard({
                       </div>
                     </th>
                   ))}
-                  {!isChatTeam && (
+                  {(!isChatTeam || !hasChat7) && (
                     <th className="px-3 py-3 text-center min-w-[110px] bg-amber-100/70 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 border-x border-amber-200 dark:border-amber-900/60 font-bold">
                       <div className="flex items-center justify-center gap-1">
                         <PhoneOutgoing size={12} />
@@ -1606,8 +1619,8 @@ export default function QualityDashboard({
                     </th>
                   )}
                   {isChatTeam && hasChat7 && (
-                    <th className="px-3 py-3 text-center min-w-[110px] bg-emerald-100/70 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 border-x border-emerald-200 dark:border-emerald-900/60 font-bold">
-                      <div className="flex items-center justify-center gap-1">
+                    <th className="px-2.5 py-3 text-center min-w-[100px]">
+                      <div className="flex items-center justify-center gap-1 text-emerald-800 dark:text-emerald-300 font-bold">
                         <MessageSquare size={12} />
                         <span>Chat 7</span>
                       </div>
@@ -1622,7 +1635,7 @@ export default function QualityDashboard({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-[#FDFCFB] dark:bg-gray-900">
                 {currentCsrs.length === 0 ? (
                   <tr>
-                    <td colSpan={isChatTeam && !hasChat7 ? 8 : 9} className="p-8 text-center text-sm text-gray-400">
+                    <td colSpan={9} className="p-8 text-center text-sm text-gray-400">
                       No agents found for this team.
                     </td>
                   </tr>
@@ -1716,8 +1729,8 @@ export default function QualityDashboard({
                           );
                         })}
 
-                        {/* Call Team: 1 Outbound Call Input */}
-                        {!isChatTeam && (
+                        {/* Call Team: 1 Outbound Call Input (or Chat Team before Q3 W10) */}
+                        {(!isChatTeam || !hasChat7) && (
                           <td className="p-2 text-center bg-amber-50/40 dark:bg-amber-950/20 border-x border-amber-200/60 dark:border-amber-900/40">
                             {(() => {
                               const key = `w${selectedWeek}_outbound`;
@@ -1772,9 +1785,9 @@ export default function QualityDashboard({
                           </td>
                         )}
 
-                        {/* Chat Team: Chat 7 Input (Starting Q3 Week 10) */}
+                        {/* Chat Team: Chat 7 Input (Starting Q3 Week 10) - Styled identically to Chat 1-6 */}
                         {isChatTeam && hasChat7 && (
-                          <td className="p-2 text-center bg-emerald-50/40 dark:bg-emerald-950/20 border-x border-emerald-200/60 dark:border-emerald-900/40">
+                          <td className="p-2 text-center">
                             {(() => {
                               const key = `w${selectedWeek}_chat_7`;
                               const rawVal = currentScores[key] ?? currentScores[`w${selectedWeek}_outbound`];
@@ -1802,12 +1815,12 @@ export default function QualityDashboard({
                                     onKeyDown={(e) => handleCellKeyDown(e, agentIdx, 6)}
                                     onFocus={(e) => e.target.select()}
                                     placeholder="-"
-                                    className={`w-20 sm:w-22 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
+                                    className={`w-18 sm:w-20 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
                                       isV
                                         ? "bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
                                         : isNA
                                         ? "bg-gray-100 dark:bg-gray-800/80 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700"
-                                        : "bg-white dark:bg-gray-800/90 border border-emerald-200/90 dark:border-emerald-900/50 text-gray-900 dark:text-gray-100 hover:border-emerald-400 focus:border-[#1C6B53] dark:focus:border-emerald-400 focus:ring-2 focus:ring-[#1C6B53]/20"
+                                        : "bg-white dark:bg-gray-800/90 border border-gray-200/90 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:border-emerald-400 dark:hover:border-emerald-500/70 focus:border-[#1C6B53] dark:focus:border-emerald-400 focus:ring-2 focus:ring-[#1C6B53]/20 dark:focus:ring-emerald-400/20"
                                     }`}
                                   />
 
@@ -1817,7 +1830,7 @@ export default function QualityDashboard({
                                     className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
                                       hasNote
                                         ? "bg-red-500 text-white ring-2 ring-white dark:ring-gray-900 hover:bg-red-600 scale-100 z-10"
-                                        : "bg-emerald-100 hover:bg-[#1C6B53] dark:bg-gray-700 text-emerald-700 hover:text-white dark:text-gray-400 ring-1 ring-emerald-200 dark:ring-gray-600 hover:scale-110 opacity-70 group-hover:opacity-100 z-10"
+                                        : "bg-gray-100 hover:bg-[#1C6B53] dark:bg-gray-700 text-gray-400 hover:text-white dark:text-gray-400 ring-1 ring-gray-200/90 dark:ring-gray-600/70 hover:scale-110 opacity-70 group-hover:opacity-100 z-10"
                                     }`}
                                     title={hasNote ? `Note: ${note}` : "Add Note"}
                                   >
@@ -1876,8 +1889,8 @@ export default function QualityDashboard({
                       );
                     })}
 
-                    {/* Call Team: Outbound column avg */}
-                    {!isChatTeam && (() => {
+                    {/* Call Team: Outbound column avg (or Chat Team before Q3 W10) */}
+                    {(!isChatTeam || !hasChat7) && (() => {
                       const nums: number[] = [];
                       currentCsrs.forEach(csrName => {
                         const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
@@ -1897,7 +1910,7 @@ export default function QualityDashboard({
                       );
                     })()}
 
-                    {/* Chat Team: Chat 7 column avg (Q3 W10+) */}
+                    {/* Chat Team: Chat 7 column avg (Q3 W10+) - Identical to Chat 1-6 */}
                     {isChatTeam && hasChat7 && (() => {
                       const nums: number[] = [];
                       currentCsrs.forEach(csrName => {
@@ -1913,7 +1926,7 @@ export default function QualityDashboard({
                       });
                       const c7Avg = nums.length > 0 ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : "-";
                       return (
-                        <td className="p-2 text-center font-black text-emerald-800 dark:text-emerald-400 bg-emerald-100/40 dark:bg-emerald-950/30">
+                        <td className="p-2 text-center font-black text-[#1C6B53] dark:text-emerald-300">
                           {c7Avg !== "-" ? `${c7Avg}%` : "-"}
                         </td>
                       );
