@@ -200,6 +200,8 @@ export default function QualityDashboard({
   
   // Top Card Summary Period: affects only the top card
   const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
+  // Selected month for top card (null = show full period, 0-11 = Jan-Dec)
+  const [selectedCardMonth, setSelectedCardMonth] = useState<number | null>(null);
 
   const defaultSectionId = useMemo(() => {
     const email = (userProfile?.email || "").toLowerCase();
@@ -417,6 +419,21 @@ export default function QualityDashboard({
     return Array.from({ length: 12 }, (_, i) => i + 1);
   }, []);
 
+  // Month names for dropdown
+  const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  // Map a calendar month (0-11) to { quarter, weekStart, weekEnd } within that quarter
+  // Each quarter has 3 months: months 0-2 of Q1, 3-5 of Q2, 6-8 of Q3, 9-11 of Q4
+  // Each month maps to ~4 weeks: month0→w1-4, month1→w5-8, month2→w9-12
+  const getMonthWeekRange = (month: number): { quarter: string; weekStart: number; weekEnd: number } => {
+    const qIdx = Math.floor(month / 3); // 0=Q1, 1=Q2, 2=Q3, 3=Q4
+    const quarter = ["Q1","Q2","Q3","Q4"][qIdx];
+    const monthInQ = month % 3; // 0,1,2
+    const weekStart = monthInQ * 4 + 1;
+    const weekEnd = monthInQ === 2 ? 12 : monthInQ * 4 + 4;
+    return { quarter, weekStart, weekEnd };
+  };
+
   // Compute team statistics for top card (Sentence case, no "Audit", only "Quality")
   const teamQualityStats = useMemo(() => {
     let totalCallsAudited = 0;
@@ -428,15 +445,26 @@ export default function QualityDashboard({
     const weeksWithData = new Set<string>();
     const csrTotals: Record<string, { sum: number; count: number }> = {};
 
-    const targetQuarters = 
-      cardPeriodMode === "h1" ? ["Q1", "Q2"] :
-      cardPeriodMode === "h2" ? ["Q3", "Q4"] :
-      cardPeriodMode === "year" ? ["Q1", "Q2", "Q3", "Q4"] :
-      [selectedQuarter];
+    // When a specific month is selected, filter to that month only
+    let targetQuarters: string[];
+    let weekFilter: ((qId: string, w: number) => boolean) | null = null;
+    let totalWeeksInPeriod: number;
 
-    const totalWeeksInPeriod = 
-      cardPeriodMode === "year" ? 48 :
-      (cardPeriodMode === "h1" || cardPeriodMode === "h2") ? 24 : 12;
+    if (selectedCardMonth !== null) {
+      const { quarter, weekStart, weekEnd } = getMonthWeekRange(selectedCardMonth);
+      targetQuarters = [quarter];
+      weekFilter = (qId: string, w: number) => qId === quarter && w >= weekStart && w <= weekEnd;
+      totalWeeksInPeriod = weekEnd - weekStart + 1;
+    } else {
+      targetQuarters = 
+        cardPeriodMode === "h1" ? ["Q1", "Q2"] :
+        cardPeriodMode === "h2" ? ["Q3", "Q4"] :
+        cardPeriodMode === "year" ? ["Q1", "Q2", "Q3", "Q4"] :
+        [selectedQuarter];
+      totalWeeksInPeriod = 
+        cardPeriodMode === "year" ? 48 :
+        (cardPeriodMode === "h1" || cardPeriodMode === "h2") ? 24 : 12;
+    }
 
     // 7 calls/chats per week for every agent
     const totalTargetCalls = currentCsrs.length * 7 * totalWeeksInPeriod;
@@ -450,6 +478,9 @@ export default function QualityDashboard({
         const scores = evalData[docId]?.scores || {};
 
         for (let w = 1; w <= 12; w++) {
+          // Skip weeks not in the selected month filter
+          if (weekFilter && !weekFilter(qId, w)) continue;
+
           const weekBase = (w - 1) * 6;
           const weekHasChat7 = getHasChat7(true, selectedYear, qId, w);
 
@@ -576,7 +607,7 @@ export default function QualityDashboard({
       topAgent,
       totalAgents: currentCsrs.length
     };
-  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, evalData, isChatTeam]);
+  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedCardMonth, evalData, isChatTeam]);
 
   const callBase = (selectedWeek - 1) * 6;
 
@@ -1460,7 +1491,26 @@ export default function QualityDashboard({
                 </button>
               </div>
 
-              {/* Evaluator/Team Switcher: ONLY VISIBLE TO ADMIN & MANAGER */}
+              {/* Month Dropdown Filter */}
+              <div className="relative">
+                <select
+                  value={selectedCardMonth === null ? "" : String(selectedCardMonth)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedCardMonth(val === "" ? null : parseInt(val, 10));
+                  }}
+                  className="appearance-none pl-2.5 pr-6 py-1 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-bold backdrop-blur-md outline-none cursor-pointer hover:bg-white/20 transition"
+                  title="Filter by month"
+                >
+                  <option value="" className="text-gray-900 bg-white">All Months</option>
+                  {MONTH_NAMES.map((name, idx) => (
+                    <option key={idx} value={String(idx)} className="text-gray-900 bg-white">{name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/70" />
+              </div>
+
+
               {canSwitchTeams && (
                 <div className="flex items-center gap-1.5 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15">
                   {DEFAULT_SECTIONS.map(sec => (
@@ -1588,25 +1638,17 @@ export default function QualityDashboard({
           <div className="flex items-center gap-1 shrink-0">
             {weeksList.map(w => {
               const isSel = selectedWeek === w;
-              const isCurrentCalendarWeek = selectedYear === initialPeriod.year && selectedQuarter === initialPeriod.quarter && w === initialPeriod.week;
               return (
                 <button
                   key={w}
                   onClick={() => setSelectedWeek(w)}
-                  className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                     isSel
                       ? "bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]"
                       : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60"
                   }`}
                 >
-                  <span>Week {w}</span>
-                  {isCurrentCalendarWeek && (
-                    <span className={`px-1.5 py-0.5 text-[8px] font-extrabold rounded-md uppercase tracking-wider ${
-                      isSel ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-950 text-[#1C6B53] dark:text-emerald-300"
-                    }`}>
-                      Current
-                    </span>
-                  )}
+                  Week {w}
                 </button>
               );
             })}

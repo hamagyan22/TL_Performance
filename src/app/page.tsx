@@ -93,6 +93,26 @@ function validatePasswordSecurity(password: string): { isValid: boolean; error: 
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
+// Maps a month abbreviation to its quarter and week range within that quarter
+// Each quarter has 3 months each spanning 4 weeks (month1→w1-4, month2→w5-8, month3→w9-12)
+function getQualityWeekRange(month: string): { quarter: string; weekStart: number; weekEnd: number } | null {
+  const idx = MONTHS.indexOf(month.toUpperCase());
+  if (idx === -1) return null;
+  const qIdx = Math.floor(idx / 3); // 0=Q1, 1=Q2, 2=Q3, 3=Q4
+  const quarter = ["Q1","Q2","Q3","Q4"][qIdx];
+  const monthInQ = idx % 3; // 0,1,2
+  const weekStart = monthInQ * 4 + 1;
+  const weekEnd = monthInQ === 2 ? 12 : monthInQ * 4 + 4;
+  return { quarter, weekStart, weekEnd };
+}
+
+// Maps a team name to its QA evaluator section slug in quality_evaluations
+function getQaSectionSlug(team: string): string {
+  if (team === 'Mohammed Dlshad Team') return 'mohammed_dlshad';
+  if (team === 'Ankido Buya Team') return 'lara_kamil';
+  return 'mohammed_jihad';
+}
+
 const getPreviousMonthAndYear = () => {
   const now = new Date();
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -1723,6 +1743,45 @@ export default function Dashboard() {
           });
           return avgRow;
         });
+
+        // Auto-populate quality from quality_evaluations for aggregate periods
+        const hasQualityCol = teamCols.some((c: any) => c.id === 'quality');
+        if (hasQualityCol) {
+          const sectionSlug = getQaSectionSlug(selectedTeam);
+          const isChatT = selectedTeam === 'Mohammed Dlshad Team';
+          const monthsInPeriod = aggregateMap[selectedMonth] || [];
+
+          for (const row of aggregatedRows) {
+            const agentName = row.agent_name;
+            const slug = agentName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            let sumQ = 0; let cntQ = 0;
+            for (const month of monthsInPeriod) {
+              const wr = getQualityWeekRange(month);
+              if (!wr) continue;
+              const docId = `${selectedYear}_${wr.quarter}_${sectionSlug}_${slug}`;
+              try {
+                const qaDoc = await getDoc(doc(db, 'quality_evaluations', docId));
+                if (qaDoc.exists()) {
+                  const scores = qaDoc.data().scores || {};
+                  for (let w = wr.weekStart; w <= wr.weekEnd; w++) {
+                    for (let c = 1; c <= 6; c++) {
+                      const keys = isChatT
+                        ? [`w${w}_chat_${c}`, `w${w}_call_${c}`]
+                        : [`w${w}_call_${(w-1)*6+c}`, `w${w}_call_${c}`];
+                      const val = keys.reduce((acc: any, k: string) => acc !== undefined ? acc : scores[k], undefined);
+                      const v = parseFloat(val || '');
+                      if (!isNaN(v)) { sumQ += v; cntQ++; }
+                    }
+                    const outV = parseFloat(scores[`w${w}_outbound`] || '');
+                    if (!isNaN(outV)) { sumQ += outV; cntQ++; }
+                  }
+                }
+              } catch(e) { /* ignore individual fetch errors */ }
+            }
+            if (cntQ > 0) row['quality'] = (sumQ / cntQ).toFixed(1);
+          }
+        }
+
         setRows(aggregatedRows);
       } else {
         const metricsByAgent: Record<string, any> = {};
@@ -1747,6 +1806,44 @@ export default function Dashboard() {
           teamCols.forEach(col => empty[col.id] = "");
           return empty;
         });
+
+        // Auto-populate quality from quality_evaluations for the selected month
+        const hasQualityCol = teamCols.some((c: any) => c.id === 'quality');
+        if (hasQualityCol) {
+          const wr = getQualityWeekRange(selectedMonth);
+          const sectionSlug = getQaSectionSlug(selectedTeam);
+          const isChatT = selectedTeam === 'Mohammed Dlshad Team';
+          if (wr) {
+            for (const row of mergedRows) {
+              const agentName = row.agent_name;
+              const slug = agentName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+              const docId = `${selectedYear}_${wr.quarter}_${sectionSlug}_${slug}`;
+              try {
+                const qaDoc = await getDoc(doc(db, 'quality_evaluations', docId));
+                if (qaDoc.exists()) {
+                  const scores = qaDoc.data().scores || {};
+                  let sumQ = 0; let cntQ = 0;
+                  for (let w = wr.weekStart; w <= wr.weekEnd; w++) {
+                    for (let c = 1; c <= 6; c++) {
+                      const keys = isChatT
+                        ? [`w${w}_chat_${c}`, `w${w}_call_${c}`]
+                        : [`w${w}_call_${(w-1)*6+c}`, `w${w}_call_${c}`];
+                      const val = keys.reduce((acc: any, k: string) => acc !== undefined ? acc : scores[k], undefined);
+                      const v = parseFloat(val || '');
+                      if (!isNaN(v)) { sumQ += v; cntQ++; }
+                    }
+                    const outV = parseFloat(scores[`w${w}_outbound`] || '');
+                    if (!isNaN(outV)) { sumQ += outV; cntQ++; }
+                  }
+                  if (cntQ > 0) row['quality'] = (sumQ / cntQ).toFixed(1);
+                }
+              } catch(e) {
+                // Silently ignore individual agent QA fetch errors
+              }
+            }
+          }
+        }
+
         setRows(mergedRows);
       }
     } catch (err: any) {
