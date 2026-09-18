@@ -1095,7 +1095,7 @@ export default function QualityDashboard({
                 </h1>
               </div>
               <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                {currentSection.team} Performance & Weekly Call Evaluations
+                Weekly Call Evaluations & Performance Overview
               </p>
             </div>
           </div>
@@ -1197,9 +1197,6 @@ export default function QualityDashboard({
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-emerald-200">
                     QA Evaluator Performance
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white font-bold">
-                    {currentSection.team}
                   </span>
                 </div>
                 {/* Main Evaluator Name Title */}
