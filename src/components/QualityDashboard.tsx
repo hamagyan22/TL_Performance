@@ -8,7 +8,7 @@ import {
   Award, CheckCircle2, Calendar, TrendingUp, ArrowLeft, Search, Plus, 
   Trash2, Users, Check, Copy, Sparkles, ShieldCheck, Save, Download, 
   Sun, Moon, Filter, Layers, Eye, ChevronDown, CheckCheck, RefreshCw, 
-  LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Lock
+  LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Lock, MessageSquare
 } from "lucide-react";
 
 interface QualityDashboardProps {
@@ -51,7 +51,7 @@ const DEFAULT_SECTIONS: EvaluatorSection[] = [
   },
   {
     id: "mohammed_dlshad",
-    evaluator: "Mohammed Dlshad Team QA",
+    evaluator: "Mohammed Dlshad",
     team: "Mohammed Dlshad Team",
     colorBadge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60",
     headerBg: "from-emerald-900/10 via-emerald-800/5 to-transparent",
@@ -126,6 +126,9 @@ export default function QualityDashboard({
   const [selectedYear, setSelectedYear] = useState("2026");
   const [selectedQuarter, setSelectedQuarter] = useState("Q1");
   
+  // Top Card Summary Period Mode: affects ONLY the top card, not the data-entry table below
+  const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
+
   // Automatically identify the assigned section based on user role & email/name
   const defaultSectionId = useMemo(() => {
     if (isQaUser) {
@@ -155,6 +158,20 @@ export default function QualityDashboard({
   const [profileSuccess, setProfileSuccess] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Cell Note Modal State
+  const [activeNoteModal, setActiveNoteModal] = useState<{
+    csrName: string;
+    key: string;
+    callLabel: string;
+    score: string;
+    noteText: string;
+  } | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+
+  // Clear Week Confirmation Modal
+  const [showClearWeekConfirm, setShowClearWeekConfirm] = useState(false);
+  const [clearingWeek, setClearingWeek] = useState(false);
+
   // Raw data from Firestore
   const [evalData, setEvalData] = useState<Record<string, any>>({});
   const [rosterMembers, setRosterMembers] = useState<any[]>([]);
@@ -168,30 +185,26 @@ export default function QualityDashboard({
     return DEFAULT_SECTIONS.find(s => s.id === effectiveSectionId) || DEFAULT_SECTIONS[0];
   }, [effectiveSectionId]);
 
-  // 1. Fetch team members from Firestore
+  // 1. Live real-time listener for team_members (linked directly to the main dashboard)
   useEffect(() => {
-    async function fetchRoster() {
-      try {
-        const snap = await getDocs(collection(db, "team_members"));
-        const members: any[] = [];
-        snap.forEach(d => {
-          members.push({ id: d.id, ...d.data() });
-        });
-        setRosterMembers(members);
-      } catch (err) {
-        console.error("Failed to fetch team members for QA", err);
-      }
-    }
-    fetchRoster();
+    const unsub = onSnapshot(collection(db, "team_members"), (snap) => {
+      const members: any[] = [];
+      snap.forEach(d => {
+        members.push({ id: d.id, ...d.data() });
+      });
+      setRosterMembers(members);
+    }, (err) => {
+      console.error("Failed to fetch team members for QA:", err);
+    });
+    return () => unsub();
   }, []);
 
-  // 2. Real-time listener for quality evaluations in selected year and quarter
+  // 2. Real-time listener for quality evaluations in selected year (all quarters to allow instant switching and H1/H2/Year summaries)
   useEffect(() => {
     setLoading(true);
     const q = query(
       collection(db, "quality_evaluations"),
-      where("year", "==", selectedYear),
-      where("quarter", "==", selectedQuarter)
+      where("year", "==", selectedYear)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -207,7 +220,7 @@ export default function QualityDashboard({
     });
 
     return () => unsubscribe();
-  }, [selectedYear, selectedQuarter]);
+  }, [selectedYear]);
 
   // Handle cell value modification with real-time Firestore persistence
   const handleScoreChange = useCallback((
@@ -231,7 +244,8 @@ export default function QualityDashboard({
         evaluator: section.evaluator,
         team: section.team,
         csr_name: csrName,
-        scores: {}
+        scores: {},
+        notes: {}
       };
       const updatedScores = {
         ...(currentDoc.scores || {}),
@@ -275,25 +289,23 @@ export default function QualityDashboard({
     }, 450);
   }, [selectedYear, selectedQuarter, evalData]);
 
-  // CSRs list for each evaluator section
+  // CSRs list for each evaluator section: strictly pulled and deduplicated from live team_members
   const sectionCSRs = useMemo(() => {
     const result: Record<string, string[]> = {};
 
     DEFAULT_SECTIONS.forEach(sec => {
-      const existingInEval = Object.values(evalData)
-        .filter(d => d.evaluator === sec.evaluator || d.team === sec.team)
-        .map(d => d.csr_name);
-
-      const rosterForTeam = rosterMembers
+      const teamAgents = rosterMembers
         .filter(m => m.team === sec.team)
-        .map(m => m.agent_name || m.name);
+        .map(m => (m.agent_name || m.name || "").trim())
+        .filter(Boolean);
 
-      const combined = Array.from(new Set([...existingInEval, ...rosterForTeam])).filter(Boolean);
-      result[sec.id] = combined;
+      // Deduplicate and sort alphabetically
+      const uniqueSorted = Array.from(new Set(teamAgents)).sort((a, b) => a.localeCompare(b));
+      result[sec.id] = uniqueSorted;
     });
 
     return result;
-  }, [evalData, rosterMembers]);
+  }, [rosterMembers]);
 
   // CSRs for current section, filtered by search
   const currentCsrs = useMemo(() => {
@@ -307,7 +319,7 @@ export default function QualityDashboard({
     return Array.from({ length: 12 }, (_, i) => i + 1);
   }, []);
 
-  // Compute team annual and quarterly statistics for the green summary card at top
+  // Compute team statistics for the top card (respecting cardPeriodMode: Quarter, H1, H2, or Year)
   const teamQualityStats = useMemo(() => {
     let totalCallsAudited = 0;
     let sumScores = 0;
@@ -315,45 +327,61 @@ export default function QualityDashboard({
     let outboundSum = 0;
     let outboundCount = 0;
     let passCount = 0;
-    const weeksWithData = new Set<number>();
+    const weeksWithData = new Set<string>();
     const csrTotals: Record<string, { sum: number; count: number }> = {};
+
+    const targetQuarters = 
+      cardPeriodMode === "h1" ? ["Q1", "Q2"] :
+      cardPeriodMode === "h2" ? ["Q3", "Q4"] :
+      cardPeriodMode === "year" ? ["Q1", "Q2", "Q3", "Q4"] :
+      [selectedQuarter];
+
+    const totalWeeksInPeriod = 
+      cardPeriodMode === "year" ? 48 :
+      (cardPeriodMode === "h1" || cardPeriodMode === "h2") ? 24 : 12;
+
+    const totalTargetCalls = currentCsrs.length * 7 * totalWeeksInPeriod;
 
     currentCsrs.forEach(csrName => {
       const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
       const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-      const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
-      const scores = evalData[docId]?.scores || {};
 
-      Object.entries(scores).forEach(([k, v]) => {
-        const valStr = String(v).trim().toUpperCase();
-        if (valStr && valStr !== "V" && valStr !== "N/A") {
-          const num = parseFloat(valStr);
-          if (!isNaN(num)) {
-            totalCallsAudited++;
-            sumScores += num;
-            if (num >= 90) passCount++;
+      targetQuarters.forEach(qId => {
+        const docId = `${selectedYear}_${qId}_${sectionSlug}_${slug}`;
+        const scores = evalData[docId]?.scores || {};
 
-            if (!csrTotals[csrName]) csrTotals[csrName] = { sum: 0, count: 0 };
-            csrTotals[csrName].sum += num;
-            csrTotals[csrName].count += 1;
+        Object.entries(scores).forEach(([k, v]) => {
+          const valStr = String(v).trim().toUpperCase();
+          if (valStr && valStr !== "V" && valStr !== "N/A") {
+            const num = parseFloat(valStr);
+            if (!isNaN(num)) {
+              totalCallsAudited++;
+              sumScores += num;
+              if (num >= 90) passCount++;
 
-            if (k.includes("outbound")) {
-              outboundSum += num;
-              outboundCount++;
-            } else {
-              inboundCount++;
+              if (!csrTotals[csrName]) csrTotals[csrName] = { sum: 0, count: 0 };
+              csrTotals[csrName].sum += num;
+              csrTotals[csrName].count += 1;
+
+              if (k.includes("outbound")) {
+                outboundSum += num;
+                outboundCount++;
+              } else {
+                inboundCount++;
+              }
+
+              const match = k.match(/^w(\d+)_/);
+              if (match) weeksWithData.add(`${qId}_w${match[1]}`);
             }
-
-            const match = k.match(/^w(\d+)_/);
-            if (match) weeksWithData.add(parseInt(match[1]));
           }
-        }
+        });
       });
     });
 
     const annualAvg = totalCallsAudited > 0 ? (sumScores / totalCallsAudited).toFixed(1) : "-";
     const outboundAvg = outboundCount > 0 ? (outboundSum / outboundCount).toFixed(1) : "-";
     const passRate = totalCallsAudited > 0 ? Math.round((passCount / totalCallsAudited) * 100) : 0;
+    const auditProgressPercent = totalTargetCalls > 0 ? Math.round((totalCallsAudited / totalTargetCalls) * 100) : 0;
 
     let topAgent = "—";
     let topScore = -1;
@@ -370,20 +398,23 @@ export default function QualityDashboard({
     return {
       annualAvg,
       totalCallsAudited,
+      totalTargetCalls,
+      auditProgressPercent,
       weeksCount: weeksWithData.size,
+      totalWeeksInPeriod,
       outboundAvg,
       inboundCount,
       passRate,
       topAgent,
       totalAgents: currentCsrs.length
     };
-  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, evalData]);
+  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, evalData]);
 
   // Base call numbering for the selected week:
   // Week 1 -> Calls 1-6; Week 2 -> Calls 7-12; ... Week 12 -> Calls 67-72
   const callBase = (selectedWeek - 1) * 6;
 
-  // Open profile modal
+  // Profile modal opening
   const handleOpenProfile = () => {
     if (onOpenProfile) {
       onOpenProfile();
@@ -457,6 +488,155 @@ export default function QualityDashboard({
       setProfileError(err.message || "Failed to update profile");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  // Open note modal for a specific cell
+  const handleOpenNote = (csrName: string, key: string, callLabel: string) => {
+    const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+    const existingNote = (evalData[docId]?.notes || {})[key] || "";
+    const scoreVal = (evalData[docId]?.scores || {})[key] || "";
+
+    setActiveNoteModal({
+      csrName,
+      key,
+      callLabel,
+      score: scoreVal,
+      noteText: existingNote
+    });
+  };
+
+  // Save note to Firestore
+  const handleSaveNote = async () => {
+    if (!activeNoteModal) return;
+    setSavingNote(true);
+    const { csrName, key, noteText } = activeNoteModal;
+    const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+
+    try {
+      const updatedNotes = {
+        ...((evalData[docId]?.notes) || {})
+      };
+      if (noteText.trim()) {
+        updatedNotes[key] = noteText.trim();
+      } else {
+        delete updatedNotes[key];
+      }
+
+      setEvalData(prev => {
+        const currentDoc = prev[docId] || {
+          year: selectedYear,
+          quarter: selectedQuarter,
+          evaluator: currentSection.evaluator,
+          team: currentSection.team,
+          csr_name: csrName,
+          scores: {},
+          notes: {}
+        };
+        return {
+          ...prev,
+          [docId]: {
+            ...currentDoc,
+            notes: updatedNotes,
+            updated_at: new Date().toISOString()
+          }
+        };
+      });
+
+      await setDoc(doc(db, "quality_evaluations", docId), {
+        year: selectedYear,
+        quarter: selectedQuarter,
+        evaluator: currentSection.evaluator,
+        team: currentSection.team,
+        csr_name: csrName,
+        notes: updatedNotes,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+
+      setActiveNoteModal(null);
+    } catch (e) {
+      console.error("Error saving note:", e);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // Delete note from Firestore
+  const handleDeleteNote = async () => {
+    if (!activeNoteModal) return;
+    setSavingNote(true);
+    const { csrName, key } = activeNoteModal;
+    const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+
+    try {
+      const updatedNotes = { ...((evalData[docId]?.notes) || {}) };
+      delete updatedNotes[key];
+
+      setEvalData(prev => {
+        const currentDoc = prev[docId];
+        if (!currentDoc) return prev;
+        return {
+          ...prev,
+          [docId]: {
+            ...currentDoc,
+            notes: updatedNotes,
+            updated_at: new Date().toISOString()
+          }
+        };
+      });
+
+      await setDoc(doc(db, "quality_evaluations", docId), {
+        notes: updatedNotes,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+
+      setActiveNoteModal(null);
+    } catch (e) {
+      console.error("Error deleting note:", e);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  // Clear current week data across all CSRs
+  const handleClearWeekData = async () => {
+    setClearingWeek(true);
+    try {
+      for (const csrName of currentCsrs) {
+        const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+        const currentDoc = evalData[docId];
+        if (!currentDoc) continue;
+
+        const updatedScores = { ...(currentDoc.scores || {}) };
+        const updatedNotes = { ...(currentDoc.notes || {}) };
+
+        for (let i = 1; i <= 6; i++) {
+          const callIndex = callBase + i;
+          delete updatedScores[`w${selectedWeek}_call_${callIndex}`];
+          delete updatedNotes[`w${selectedWeek}_call_${callIndex}`];
+        }
+        delete updatedScores[`w${selectedWeek}_outbound`];
+        delete updatedNotes[`w${selectedWeek}_outbound`];
+
+        await setDoc(doc(db, "quality_evaluations", docId), {
+          scores: updatedScores,
+          notes: updatedNotes,
+          updated_at: new Date().toISOString()
+        }, { merge: true });
+      }
+      setShowClearWeekConfirm(false);
+    } catch (err) {
+      console.error("Error clearing week data:", err);
+    } finally {
+      setClearingWeek(false);
     }
   };
 
@@ -578,9 +758,9 @@ export default function QualityDashboard({
           </div>
         </div>
 
-        {/* Top Annual Team Performance Card */}
+        {/* Top Evaluator Performance Card ("يعني يكون مكتوب محمد جهاد مو يونس") */}
         <div className="bg-gradient-to-br from-[#1C6B53] via-[#165a46] to-[#104334] text-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-xl shadow-[#1C6B53]/15 border border-emerald-500/30 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5 pb-4 border-b border-white/10">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5 pb-4 border-b border-white/10">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner shrink-0">
                 <Award size={24} className="text-emerald-200" />
@@ -588,75 +768,138 @@ export default function QualityDashboard({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-200">
-                    Team Quality Performance
+                    QA Evaluator Performance
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white font-bold">
-                    {currentSection.evaluator}
+                    {currentSection.team}
                   </span>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-0.5">
-                  {currentSection.team}
+                {/* Main Evaluator Name Title */}
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-0.5">
+                  {currentSection.evaluator}
                 </h2>
                 <p className="text-xs text-emerald-100/80 font-medium">
-                  {selectedYear} {selectedQuarter} Consolidated Quality Performance Summary • {teamQualityStats.totalAgents} Active CSRs
+                  {selectedYear} {currentSection.team} Quality Assurance • {teamQualityStats.totalAgents} Active CSRs
                 </p>
               </div>
             </div>
 
-            {/* Team/Evaluator Switcher: ONLY VISIBLE TO ADMIN & MANAGER */}
-            {canSwitchTeams && (
-              <div className="flex items-center gap-1.5 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15">
-                {DEFAULT_SECTIONS.map(sec => (
-                  <button
-                    key={sec.id}
-                    onClick={() => setActiveSectionId(sec.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                      effectiveSectionId === sec.id
-                        ? "bg-white text-[#1C6B53] shadow-xs font-black"
-                        : "text-white/80 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {sec.evaluator.replace(" Team QA", "")}
-                  </button>
-                ))}
+            {/* Top Card Controls: Period Toggle (Quarter, H1, H2, Full Year) & Team Switcher for Admin/Manager */}
+            <div className="flex flex-wrap items-center gap-2">
+              
+              {/* Card Summary Period Selector ("ضيف شغلة يكون بيه نصف سنوي و سنوي و ياثر فقط على كارت الي فوك") */}
+              <div className="flex items-center gap-1 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setCardPeriodMode("quarter")}
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                    cardPeriodMode === "quarter" 
+                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                      : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                  title="Quarter Summary"
+                >
+                  {selectedQuarter}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardPeriodMode("h1")}
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                    cardPeriodMode === "h1" 
+                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                      : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                  title="Semi-Annual 1 (Q1 + Q2)"
+                >
+                  H1 (Semi)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardPeriodMode("h2")}
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                    cardPeriodMode === "h2" 
+                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                      : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                  title="Semi-Annual 2 (Q3 + Q4)"
+                >
+                  H2 (Semi)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCardPeriodMode("year")}
+                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                    cardPeriodMode === "year" 
+                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                      : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                  title="Full Year Summary"
+                >
+                  Full Year
+                </button>
               </div>
-            )}
+
+              {/* Evaluator/Team Switcher: ONLY VISIBLE TO ADMIN & MANAGER */}
+              {canSwitchTeams && (
+                <div className="flex items-center gap-1.5 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15">
+                  {DEFAULT_SECTIONS.map(sec => (
+                    <button
+                      key={sec.id}
+                      onClick={() => setActiveSectionId(sec.id)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        effectiveSectionId === sec.id
+                          ? "bg-white text-[#1C6B53] shadow-xs font-black"
+                          : "text-white/80 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      {sec.evaluator}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+            </div>
           </div>
 
-          {/* 8 Metric KPI Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
+          {/* Metric KPI Cards Grid: Aligned with User Specifications */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
+            {/* 1. Team Quality % Average */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Quality %</div>
+              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Quality Avg</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "-"}
+                {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "—"}
               </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Consolidated</div>
+              <div className="text-[9px] text-emerald-300 font-medium">Team Quality %</div>
             </div>
 
+            {/* 2. Completed Weeks out of Total Weeks */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Audited Calls</div>
+              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Completed Weeks</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.totalCallsAudited}
-              </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Evaluations</div>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Active Weeks</div>
-              <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.weeksCount} / 12
+                {teamQualityStats.weeksCount} / {teamQualityStats.totalWeeksInPeriod}
               </div>
               <div className="text-[9px] text-emerald-300 font-medium">Weeks Logged</div>
             </div>
 
+            {/* 3. Total Audits Target vs Done ("جم كوالتي رح تسوي") */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Pass Rate</div>
-              <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.passRate}%
+              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Planned Audits</div>
+              <div className="text-xl sm:text-2xl font-black text-white tracking-tight my-1">
+                {teamQualityStats.totalCallsAudited} / {teamQualityStats.totalTargetCalls}
               </div>
-              <div className="text-[9px] text-emerald-300 font-medium">&ge; 90% Score</div>
+              <div className="text-[9px] text-emerald-300 font-medium">{teamQualityStats.auditProgressPercent}% Completed</div>
             </div>
 
+            {/* 4. Top QA Agent */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between col-span-2">
+              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Top QA Agent</div>
+              <div className="text-sm sm:text-base font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
+                {teamQualityStats.topAgent}
+              </div>
+              <div className="text-[9px] text-emerald-300 font-medium">Highest Quarterly Score</div>
+            </div>
+
+            {/* 5. Inbound Audits */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
               <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Inbound Audits</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
@@ -665,25 +908,18 @@ export default function QualityDashboard({
               <div className="text-[9px] text-emerald-300 font-medium">6 Calls/Week</div>
             </div>
 
+            {/* 6. Outbound Avg */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between">
               <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Outbound Avg</div>
               <div className="text-2xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.outboundAvg !== "-" ? `${teamQualityStats.outboundAvg}%` : "-"}
+                {teamQualityStats.outboundAvg !== "-" ? `${teamQualityStats.outboundAvg}%` : "—"}
               </div>
               <div className="text-[9px] text-emerald-300 font-medium">1 Call/Week</div>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col justify-between col-span-2">
-              <div className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wider">Top QA Agent</div>
-              <div className="text-sm sm:text-base font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
-                {teamQualityStats.topAgent}
-              </div>
-              <div className="text-[9px] text-emerald-300 font-medium">Highest Quarterly Score</div>
             </div>
           </div>
         </div>
 
-        {/* Toolbar: Week & Quarter Selection Bar (Only Focused Week View) */}
+        {/* Toolbar: Quarter & Week Selection Bar for Data Entry */}
         <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full overflow-x-auto scrollbar-hide shadow-xs">
           
           {/* Year Dropdown */}
@@ -697,6 +933,28 @@ export default function QualityDashboard({
             </select>
             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white/80" />
           </div>
+
+          {/* Quarter Tabs (Q1, Q2, Q3, Q4) - Stays as Data Entry Quarter Selector */}
+          <div className="flex items-center gap-1 shrink-0">
+            {QUARTERS.map(q => {
+              const isSel = selectedQuarter === q.id;
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setSelectedQuarter(q.id)}
+                  className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                    isSel
+                      ? "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]"
+                      : "text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                  }`}
+                >
+                  {q.id}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
           {/* Search Agent Input */}
           <div className="relative shrink-0">
@@ -736,31 +994,9 @@ export default function QualityDashboard({
             })}
           </div>
 
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
-
-          {/* Quarter Tabs (Q1, Q2, Q3, Q4) */}
-          <div className="flex items-center gap-1 shrink-0">
-            {QUARTERS.map(q => {
-              const isSel = selectedQuarter === q.id;
-              return (
-                <button
-                  key={q.id}
-                  onClick={() => setSelectedQuarter(q.id)}
-                  className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                    isSel
-                      ? "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]"
-                      : "text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                  }`}
-                >
-                  {q.id}
-                </button>
-              );
-            })}
-          </div>
-
         </div>
 
-        {/* Quality Data Table: Focused Week View (6 Inbound + 1 Outbound + Week Score) */}
+        {/* Quality Data Table: Focused Week View (6 Inbound + 1 Outbound + Week Score + Notes) */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
           {/* Week Section Subheader */}
           <div className="px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-2">
@@ -772,9 +1008,17 @@ export default function QualityDashboard({
                 Calls {(selectedWeek - 1) * 6 + 1} to {(selectedWeek - 1) * 6 + 6} (6 Inbound) + Outbound Evaluation
               </span>
             </div>
-            <div className="text-[11px] text-gray-400 font-medium">
-              Type <span className="font-bold text-amber-600">V</span> for Vacation • Supports numbers 0-100 & N/A
-            </div>
+
+            {/* Clear Week Data Button ("و امسح الداتا الي موجود من هذا الويك") */}
+            <button
+              type="button"
+              onClick={() => setShowClearWeekConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-950/40 border border-gray-200 dark:border-gray-700 transition shadow-2xs cursor-pointer"
+              title={`Clear all data for Week ${selectedWeek}`}
+            >
+              <Trash2 size={12} />
+              <span>Clear Week {selectedWeek} Data</span>
+            </button>
           </div>
 
           <div 
@@ -847,7 +1091,9 @@ export default function QualityDashboard({
                     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
                     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
                     const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
-                    const currentScores = evalData[docId]?.scores || {};
+                    const currentDoc = evalData[docId] || {};
+                    const currentScores = currentDoc.scores || {};
+                    const currentNotes = currentDoc.notes || {};
                     const weekAvg = computeWeekAvg(currentScores, selectedWeek);
 
                     return (
@@ -862,48 +1108,92 @@ export default function QualityDashboard({
                           </div>
                         </td>
 
-                        {/* 6 Inbound Call Inputs */}
+                        {/* 6 Inbound Call Inputs with Note Capability */}
                         {[1, 2, 3, 4, 5, 6].map(cNum => {
                           const callIndex = callBase + cNum;
                           const key = `w${selectedWeek}_call_${callIndex}`;
                           const val = currentScores[key] || "";
+                          const note = currentNotes[key] || "";
+                          const hasNote = Boolean(note.trim());
                           const isV = val.toUpperCase() === "V";
                           const isNA = val.toUpperCase().includes("N/A");
 
                           return (
                             <td key={cNum} className="p-1.5 text-center">
-                              <input
-                                type="text"
-                                value={val}
-                                onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
-                                placeholder="-"
-                                className={`w-14 h-8 text-center rounded-xl font-bold text-xs outline-none transition shadow-xs ${
-                                  isV
-                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-                                    : isNA
-                                    ? "bg-gray-200/60 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                                    : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/20"
-                                }`}
-                              />
+                              <div className="relative group/cell inline-block">
+                                <input
+                                  type="text"
+                                  value={val}
+                                  onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
+                                  placeholder="-"
+                                  className={`w-14 h-8 text-center rounded-xl font-bold text-xs outline-none transition shadow-xs ${
+                                    isV
+                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                      : isNA
+                                      ? "bg-gray-200/60 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/20"
+                                  } ${hasNote ? "ring-2 ring-amber-400/70 dark:ring-amber-500/70" : ""}`}
+                                />
+
+                                {/* Note Button / Badge ("خلي تكدر على كل خانة تضيف نوت و بنكدر تعدل او تحذف النوت") */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenNote(csrName, key, `Call ${callIndex}`)}
+                                  className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                                    hasNote
+                                      ? "bg-amber-500 text-white hover:bg-amber-600 scale-100 ring-2 ring-white dark:ring-gray-900"
+                                      : "opacity-0 group-hover/cell:opacity-100 bg-gray-200 hover:bg-[#1C6B53] text-gray-600 hover:text-white dark:bg-gray-700 dark:hover:bg-emerald-500 scale-90"
+                                  }`}
+                                  title={hasNote ? `Note: ${note}` : "Add Note"}
+                                >
+                                  <MessageSquare size={8} className="fill-current" />
+                                </button>
+                              </div>
                             </td>
                           );
                         })}
 
-                        {/* 1 Outbound Call Input */}
+                        {/* 1 Outbound Call Input with Note Capability */}
                         <td className="p-1.5 text-center bg-amber-50/40 dark:bg-amber-950/20 border-x border-amber-200/60 dark:border-amber-900/40">
-                          <input
-                            type="text"
-                            value={currentScores[`w${selectedWeek}_outbound`] || ""}
-                            onChange={(e) => handleScoreChange(currentSection, csrName, `w${selectedWeek}_outbound`, e.target.value)}
-                            placeholder="-"
-                            className={`w-16 h-8 text-center rounded-xl font-black text-xs outline-none transition shadow-xs ${
-                              (currentScores[`w${selectedWeek}_outbound`] || "").toUpperCase() === "V"
-                                ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
-                                : (currentScores[`w${selectedWeek}_outbound`] || "").toUpperCase().includes("N/A")
-                                ? "bg-gray-200/60 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
-                                : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/20"
-                            }`}
-                          />
+                          {(() => {
+                            const key = `w${selectedWeek}_outbound`;
+                            const val = currentScores[key] || "";
+                            const note = currentNotes[key] || "";
+                            const hasNote = Boolean(note.trim());
+                            const isV = val.toUpperCase() === "V";
+                            const isNA = val.toUpperCase().includes("N/A");
+
+                            return (
+                              <div className="relative group/cell inline-block">
+                                <input
+                                  type="text"
+                                  value={val}
+                                  onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
+                                  placeholder="-"
+                                  className={`w-16 h-8 text-center rounded-xl font-black text-xs outline-none transition shadow-xs ${
+                                    isV
+                                      ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                      : isNA
+                                      ? "bg-gray-200/60 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 focus:border-[#1C6B53] dark:focus:border-emerald-500 focus:ring-2 focus:ring-[#1C6B53]/20"
+                                  } ${hasNote ? "ring-2 ring-amber-400/70 dark:ring-amber-500/70" : ""}`}
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenNote(csrName, key, "Outbound Call")}
+                                  className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                                    hasNote
+                                      ? "bg-amber-500 text-white hover:bg-amber-600 scale-100 ring-2 ring-white dark:ring-gray-900"
+                                      : "opacity-0 group-hover/cell:opacity-100 bg-gray-200 hover:bg-[#1C6B53] text-gray-600 hover:text-white dark:bg-gray-700 dark:hover:bg-emerald-500 scale-90"
+                                  }`}
+                                  title={hasNote ? `Note: ${note}` : "Add Note"}
+                                >
+                                  <MessageSquare size={8} className="fill-current" />
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Auto-calculated Week Score */}
@@ -1004,7 +1294,121 @@ export default function QualityDashboard({
 
       </div>
 
-      {/* Self-Contained Profile Modal for Quality Portal */}
+      {/* Cell Note Modal ("خلي تكدر على كل خانة تضيف نوت و بنكدر تعدل او تحذف النوت") */}
+      {activeNoteModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActiveNoteModal(null)} />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-w-md w-full border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                    <MessageSquare size={13} />
+                  </div>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white">
+                    Evaluation Note
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                  {activeNoteModal.csrName} • {activeNoteModal.callLabel} {activeNoteModal.score ? `(Score: ${activeNoteModal.score})` : ""}
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveNoteModal(null)} 
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                  Call Feedback / Coaching Notes
+                </label>
+                <textarea
+                  rows={4}
+                  value={activeNoteModal.noteText}
+                  onChange={(e) => setActiveNoteModal({ ...activeNoteModal, noteText: e.target.value })}
+                  placeholder="Enter evaluation notes, reasons for deduction, or positive feedback for this call..."
+                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/80 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-xs font-medium resize-none focus:ring-2 focus:ring-[#1C6B53]/20"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                {activeNoteModal.noteText.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteNote}
+                    disabled={savingNote}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/40 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete Note</span>
+                  </button>
+                )}
+
+                <div className="flex-1 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveNoteModal(null)}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveNote}
+                    disabled={savingNote}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] transition shadow-md shadow-[#1C6B53]/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  >
+                    {savingNote ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                    <span>Save Note</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Week Data Confirmation Modal */}
+      {showClearWeekConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowClearWeekConfirm(false)} />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-w-sm w-full border border-gray-100 dark:border-gray-800 text-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-3 border border-red-200 dark:border-red-800">
+              <Trash2 size={22} />
+            </div>
+            <h3 className="text-base font-black text-gray-900 dark:text-white">
+              Clear Week {selectedWeek} Data?
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+              This will erase all evaluation scores and notes entered for Week {selectedWeek} in {currentSection.team}. This action cannot be undone.
+            </p>
+            <div className="flex gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowClearWeekConfirm(false)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearWeekData}
+                disabled={clearingWeek}
+                className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition shadow-md shadow-red-600/20 disabled:opacity-50 cursor-pointer"
+              >
+                {clearingWeek ? "Clearing..." : "Yes, Clear Data"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Self-Contained Profile Modal */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)} />
