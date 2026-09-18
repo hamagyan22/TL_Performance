@@ -2704,23 +2704,24 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/80 rounded-2xl shadow-sm flex-wrap w-full sm:w-auto justify-between sm:justify-end">
               {/* Dark Mode Toggle */}
               <button 
                 onClick={toggleDarkMode} 
-                className="w-8 sm:w-9 h-8 sm:h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                className="w-8 sm:w-9 h-8 sm:h-9 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors cursor-pointer"
                 title="Toggle Dark Mode"
               >
-                {isDarkMode ? <Sun size={16} className="text-amber-500" /> : <Moon size={16} />}
+                {isDarkMode ? <Sun size={15} className="text-amber-500" /> : <Moon size={15} />}
               </button>
 
-              {/* Agent View Button (For Managers: Mohammed Dlshad & Jalal Burghol) */}
-              {isManager && (
-                <>
-                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+              <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+
+              {/* Navigation Items (Agent View, Settings, Quality) */}
+              <div className="flex items-center gap-1">
+                {isManager && (
                   <button
                     onClick={() => setShowAgentPreview(true)}
-                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group cursor-pointer"
                     title="Agent View"
                   >
                     <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
@@ -2728,16 +2729,12 @@ export default function Dashboard() {
                     </div>
                     <span className="hidden xs:inline sm:inline">Agent View</span>
                   </button>
-                </>
-              )}
+                )}
 
-              {/* Manage Team / System Settings (ONLY FOR ADMIN: Mohammed Dlshad) */}
-              {isAdmin && (
-                <>
-                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+                {isAdmin && (
                   <button
                     onClick={openManageModal}
-                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group cursor-pointer"
                     title="Settings"
                   >
                     <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
@@ -2745,16 +2742,12 @@ export default function Dashboard() {
                     </div>
                     <span className="hidden xs:inline sm:inline">Settings</span>
                   </button>
-                </>
-              )}
+                )}
 
-              {/* Quality Assurance Dashboard Button (Admin & Manager) */}
-              {(isAdmin || isManager) && (
-                <>
-                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+                {(isAdmin || isManager) && (
                   <button
                     onClick={() => setShowQualityView(true)}
-                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group cursor-pointer"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-50/80 dark:hover:bg-amber-950/40 transition-all group cursor-pointer"
                     title="Quality Assurance Dashboard"
                   >
                     <div className="w-5 h-5 rounded-lg bg-amber-500/15 dark:bg-amber-400/15 flex items-center justify-center text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform">
@@ -2762,15 +2755,15 @@ export default function Dashboard() {
                     </div>
                     <span className="hidden xs:inline sm:inline">Quality</span>
                   </button>
-                </>
-              )}
+                )}
+              </div>
 
               <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
 
               {/* Profile Button */}
               <button 
                 onClick={openProfileModal}
-                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-all group cursor-pointer"
                 title="Profile Settings"
               >
                 <div className="w-6 sm:w-7 h-6 sm:h-7 rounded-full bg-gradient-to-tr from-[#1C6B53] to-emerald-400 flex items-center justify-center overflow-hidden ring-2 ring-[#1C6B53]/20 dark:ring-emerald-400/20 text-white font-black text-xs shadow-sm flex-shrink-0">
@@ -2801,7 +2794,7 @@ export default function Dashboard() {
               {/* Logout Button */}
               <button 
                 onClick={handleLogout} 
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all cursor-pointer"
                 title="Logout"
               >
                 <LogOut size={14} />
@@ -3143,7 +3136,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-4 sm:mb-6">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-                  System Configuration
+                  System Settings
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1">
                   Add or remove agents and table columns across the system.
