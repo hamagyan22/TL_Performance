@@ -692,145 +692,229 @@ export default function QualityDashboard({
           <style>
             @page {
               size: A4 landscape;
-              margin: 12mm;
+              margin: 10mm 12mm;
             }
             * {
               box-sizing: border-box;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
             }
             body {
-              color: #1f2937;
-              background: #fff;
+              color: #0f172a;
+              background: #ffffff;
               margin: 0;
-              padding: 10px;
+              padding: 6px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .header-table {
               width: 100%;
-              border-bottom: 2px solid #1C6B53;
+              border-bottom: 1.5px solid #e2e8f0;
               padding-bottom: 12px;
-              margin-bottom: 14px;
+              margin-bottom: 12px;
             }
             .logo {
-              height: 48px;
+              height: 42px;
               width: auto;
+              object-fit: contain;
             }
             .title-area h1 {
-              font-size: 18px;
+              font-size: 22px;
               font-weight: 900;
-              color: #111827;
-              margin: 0 0 4px 0;
+              color: #0f172a;
+              margin: 0 0 3px 0;
+              letter-spacing: -0.3px;
             }
             .title-area p {
               font-size: 11px;
-              color: #4b5563;
+              color: #64748b;
               margin: 0;
               font-weight: 500;
             }
+            .meta-badge-box {
+              display: inline-block;
+              text-align: right;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 6px 12px;
+            }
+            .meta-badge-box .meta-line {
+              font-size: 10px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            .meta-badge-box .meta-line strong {
+              color: #0f172a;
+              font-weight: 700;
+            }
             .meta-grid {
               display: grid;
-              grid-template-columns: repeat(6, 1fr);
-              gap: 8px;
-              background: #f0fdf4;
-              border: 1px solid #bbf7d0;
-              border-radius: 8px;
-              padding: 10px 14px;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 10px;
               margin-bottom: 14px;
+            }
+            .meta-item {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 10px;
+              padding: 8px 14px;
+            }
+            .meta-item.highlight {
+              background: #f0fdf4;
+              border: 1.5px solid #86efac;
             }
             .meta-item .label {
               font-size: 9px;
               text-transform: uppercase;
-              letter-spacing: 0.5px;
+              letter-spacing: 0.6px;
               font-weight: 700;
+              color: #64748b;
+            }
+            .meta-item.highlight .label {
               color: #166534;
             }
             .meta-item .val {
-              font-size: 12px;
+              font-size: 13px;
               font-weight: 800;
-              color: #111827;
+              color: #0f172a;
               margin-top: 2px;
+            }
+            .meta-item.highlight .val {
+              color: #166534;
+              font-size: 15px;
+              font-weight: 900;
             }
             table.data-table {
               width: 100%;
-              border-collapse: collapse;
+              border-collapse: separate;
+              border-spacing: 0;
               font-size: 11px;
+              border: 1px solid #e2e8f0;
+              border-radius: 10px;
+              overflow: hidden;
             }
             table.data-table th {
               background-color: #1C6B53;
-              color: #fff;
+              color: #ffffff;
               font-weight: 800;
               text-align: center;
-              padding: 7px 6px;
-              border: 1px solid #155a45;
+              padding: 8px 5px;
+              font-size: 11px;
+              letter-spacing: 0.2px;
+              border-bottom: 1px solid #165a46;
             }
             table.data-table th.agent-col {
               text-align: left;
-              padding-left: 10px;
+              padding-left: 12px;
+            }
+            table.data-table th.outbound-header {
+              background-color: #b45309 !important;
+              color: #ffffff;
+            }
+            table.data-table th.score-header {
+              background-color: #0f4c3a !important;
+              color: #ffffff;
+              font-weight: 900;
             }
             table.data-table td {
-              padding: 6px 4px;
+              padding: 5.5px 4px;
               text-align: center;
-              border: 1px solid #e5e7eb;
+              border-bottom: 1px solid #f1f5f9;
+              border-right: 1px solid #f8fafc;
               font-weight: 600;
             }
             table.data-table td.agent-cell {
               text-align: left;
-              padding-left: 10px;
+              padding-left: 12px;
               font-weight: 700;
-              color: #111827;
+              color: #0f172a;
             }
             table.data-table tr:nth-child(even) td {
-              background-color: #f9fafb;
+              background-color: #fbfcfd;
+            }
+            table.data-table tr:nth-child(odd) td {
+              background-color: #ffffff;
             }
             .badge-v {
               background-color: #fef3c7;
               color: #92400e;
-              padding: 1px 5px;
+              padding: 1.5px 6px;
               border-radius: 4px;
               font-weight: 800;
+              font-size: 10px;
+              border: 1px solid #fde68a;
             }
             .badge-score {
               background-color: #ecfdf5;
-              color: #1C6B53;
-              font-weight: 800;
-              padding: 2px 6px;
-              border-radius: 4px;
+              color: #166534;
+              font-weight: 900;
+              padding: 2.5px 7px;
+              border-radius: 6px;
               border: 1px solid #a7f3d0;
+              font-size: 11px;
+              display: inline-block;
+            }
+            .muted-dash {
+              color: #cbd5e1;
+              font-weight: 400;
+            }
+            .note-tag {
+              display: inline-block;
+              font-size: 8px;
+              font-weight: 800;
+              color: #dc2626;
+              background: #fef2f2;
+              border: 1px solid #fecaca;
+              border-radius: 3px;
+              padding: 0.5px 3px;
+              margin-top: 1px;
             }
             .outbound-col {
-              background-color: #fffbeb !important;
+              background-color: #fffdf5 !important;
               color: #92400e;
             }
             tr.total-row td {
-              background-color: #dcfce7 !important;
+              background-color: #f0fdf4 !important;
               color: #166534 !important;
               font-weight: 900;
               font-size: 11px;
               border-top: 2px solid #1C6B53;
+              border-bottom: 2px solid #1C6B53;
+              padding: 8px 4px;
+            }
+            tr.total-row td.total-avg-cell {
+              background-color: #1C6B53 !important;
+              color: #ffffff !important;
+              font-size: 12px;
+              font-weight: 900;
             }
             .footer {
               margin-top: 14px;
               padding-top: 8px;
-              border-top: 1px solid #e5e7eb;
+              border-top: 1px solid #e2e8f0;
               display: flex;
               justify-content: space-between;
               font-size: 9px;
-              color: #6b7280;
+              color: #94a3b8;
+              font-weight: 500;
             }
           </style>
         </head>
         <body>
           <table class="header-table">
             <tr>
-              <td style="width: 140px; vertical-align: middle;">
+              <td style="width: 130px; vertical-align: middle;">
                 <img src="${window.location.origin}/logo.webp" class="logo" alt="FIB Logo" />
               </td>
               <td class="title-area" style="vertical-align: middle;">
-                <h1>First Islamic Bank (FIB) • Quality Assurance Report</h1>
+                <h1>Quality Assurance Report</h1>
                 <p>Official Weekly Quality Evaluation Summary & Performance Metrics</p>
               </td>
-              <td style="text-align: right; vertical-align: middle; font-size: 10px; color: #6b7280;">
-                <div><strong>Export Date:</strong> ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                <div><strong>Generated by:</strong> ${userProfile?.name || 'QA Department'}</div>
+              <td style="text-align: right; vertical-align: middle;">
+                <div class="meta-badge-box">
+                  <div class="meta-line">Export Date: <strong>${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></div>
+                  <div class="meta-line" style="margin-top: 2px;">Evaluator: <strong style="color: #1C6B53;">${currentSection.evaluator}</strong></div>
+                </div>
               </td>
             </tr>
           </table>
@@ -848,17 +932,9 @@ export default function QualityDashboard({
               <div class="label">QA Evaluator</div>
               <div class="val">${currentSection.evaluator}</div>
             </div>
-            <div class="meta-item">
-              <div class="label">Assigned Team</div>
-              <div class="val">${currentSection.team}</div>
-            </div>
-            <div class="meta-item">
-              <div class="label">Active CSRs</div>
-              <div class="val">${currentCsrs.length} Agents</div>
-            </div>
-            <div class="meta-item">
+            <div class="meta-item highlight">
               <div class="label">Team Week Avg</div>
-              <div class="val" style="color: #1C6B53;">${totalWeekTeamAvg}</div>
+              <div class="val">${totalWeekTeamAvg}</div>
             </div>
           </div>
 
@@ -873,42 +949,54 @@ export default function QualityDashboard({
                 <th style="width: 60px;">Call ${callBase + 4}</th>
                 <th style="width: 60px;">Call ${callBase + 5}</th>
                 <th style="width: 60px;">Call ${callBase + 6}</th>
-                <th class="outbound-col" style="width: 70px;">Outbound</th>
-                <th style="width: 90px; background-color: #165a46;">Week ${selectedWeek} Score</th>
+                <th class="outbound-header" style="width: 75px;">Outbound</th>
+                <th class="score-header" style="width: 95px;">Week ${selectedWeek} Score</th>
               </tr>
             </thead>
             <tbody>
               ${rowsData.map(r => `
                 <tr>
-                  <td style="color: #6b7280; font-size: 10px;">${r.idx}</td>
+                  <td style="color: #94a3b8; font-size: 10px; font-weight: 600;">${r.idx}</td>
                   <td class="agent-cell">${r.csrName}</td>
                   ${r.callVals.map(c => `
                     <td>
-                      ${c.val === 'V' ? '<span class="badge-v">V</span>' : c.val}
-                      ${c.note ? `<div style="font-size: 8px; color: #b45309; margin-top: 1px;">*Note</div>` : ''}
+                      ${c.val === 'V' 
+                        ? '<span class="badge-v">V</span>' 
+                        : c.val === '-' 
+                        ? '<span class="muted-dash">—</span>' 
+                        : `<span style="font-weight: 800; color: #0f172a;">${c.val}</span>`}
+                      ${c.note ? `<br><span class="note-tag">Note</span>` : ''}
                     </td>
                   `).join('')}
                   <td class="outbound-col">
-                    ${r.outboundVal.val === 'V' ? '<span class="badge-v">V</span>' : r.outboundVal.val}
-                    ${r.outboundVal.note ? `<div style="font-size: 8px; color: #b45309; margin-top: 1px;">*Note</div>` : ''}
+                    ${r.outboundVal.val === 'V' 
+                      ? '<span class="badge-v">V</span>' 
+                      : r.outboundVal.val === '-' 
+                      ? '<span class="muted-dash">—</span>' 
+                      : `<span style="font-weight: 800; color: #92400e;">${r.outboundVal.val}</span>`}
+                    ${r.outboundVal.note ? `<br><span class="note-tag">Note</span>` : ''}
                   </td>
                   <td>
-                    <span class="badge-score">${r.weekAvg}</span>
+                    ${r.weekAvg !== '-' && r.weekAvg !== 'V' 
+                      ? `<span class="badge-score">${r.weekAvg}</span>` 
+                      : r.weekAvg === 'V' 
+                      ? '<span class="badge-v">V</span>' 
+                      : '<span class="muted-dash">—</span>'}
                   </td>
                 </tr>
               `).join('')}
 
               <tr class="total-row">
-                <td colspan="2" style="text-align: left; padding-left: 10px;">Team Average</td>
-                ${colAverages.map(avg => `<td>${avg}</td>`).join('')}
-                <td class="outbound-col">${outboundColAvg}</td>
-                <td style="background-color: #bbf7d0 !important; font-size: 12px; font-weight: 900;">${totalWeekTeamAvg}</td>
+                <td colspan="2" style="text-align: left; padding-left: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Team Average</td>
+                ${colAverages.map(avg => `<td>${avg === '-' ? '<span class="muted-dash">—</span>' : avg}</td>`).join('')}
+                <td class="outbound-col" style="font-weight: 900; color: #92400e;">${outboundColAvg === '-' ? '<span class="muted-dash">—</span>' : outboundColAvg}</td>
+                <td class="total-avg-cell">${totalWeekTeamAvg}</td>
               </tr>
             </tbody>
           </table>
 
           <div class="footer">
-            <div>First Islamic Bank • Quality Assurance System • Confidential Document</div>
+            <div>Quality Assurance System • Official Confidential Report</div>
             <div>Week ${selectedWeek} Quality Performance Summary</div>
           </div>
 
