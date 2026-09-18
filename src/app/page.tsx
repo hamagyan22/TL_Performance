@@ -54,6 +54,7 @@ function sortColumnsByOrder(cols: ColumnConfig[]) {
 
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Camera } from "lucide-react";
+import QualityDashboard from "@/components/QualityDashboard";
 
 function toTitleCase(str: string) {
   if (!str) return '';
@@ -1165,6 +1166,7 @@ export default function Dashboard() {
   const [selectedTeam, setSelectedTeam] = useState<TeamName>('Younis Kamal Team');
   const [rows, setRows] = useState<any[]>([]);
   const [showAgentPreview, setShowAgentPreview] = useState(false);
+  const [showQualityView, setShowQualityView] = useState(false);
 
   // Drag-to-select table cells state & refs
   const [selectionStart, setSelectionStart] = useState<{ rowIndex: number; colIndex: number } | null>(null);
@@ -2561,6 +2563,17 @@ export default function Dashboard() {
       );
     }
 
+    if (showQualityView && isAdmin) {
+      return (
+        <QualityDashboard 
+          userProfile={userProfile} 
+          onBack={() => setShowQualityView(false)} 
+          isDarkMode={isDarkMode}
+          toggleDarkMode={toggleDarkMode}
+        />
+      );
+    }
+
     const activeTeams = userProfile?.role === 'tl' && userProfile?.team 
       ? TEAMS.filter(t => t === userProfile.team) 
       : TEAMS;
@@ -2708,6 +2721,21 @@ export default function Dashboard() {
                       <Settings size={13} />
                     </div>
                     <span className="hidden xs:inline sm:inline">Config</span>
+                  </button>
+
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
+                  <button
+                    onClick={() => setShowQualityView(true)}
+                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group cursor-pointer"
+                    title="Quality Assurance Scorecards"
+                  >
+                    <div className="w-5 h-5 rounded-lg bg-amber-500/15 dark:bg-amber-400/15 flex items-center justify-center text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                      <Award size={13} />
+                    </div>
+                    <span className="hidden xs:inline sm:inline">Quality</span>
+                    <span className="text-[8px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 uppercase tracking-widest hidden sm:inline">
+                      Admin
+                    </span>
                   </button>
                 </>
               )}
