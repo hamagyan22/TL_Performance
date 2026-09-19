@@ -363,7 +363,9 @@ export default function QualityDashboard({
   ) => {
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const sectionSlug = section.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+    const isTrainerSection = section.id === "mohammed_azad" || section.evaluator.toLowerCase().includes("azad");
+    const effectiveQuarter = isTrainerSection ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
 
     let val = rawVal.trim();
     if (val.toUpperCase() === "V") val = "V";
@@ -372,7 +374,7 @@ export default function QualityDashboard({
     setEvalData(prev => {
       const currentDoc = prev[docId] || {
         year: selectedYear,
-        quarter: selectedQuarter,
+        quarter: effectiveQuarter,
         evaluator: section.evaluator,
         team: section.team,
         csr_name: csrName,
@@ -402,7 +404,7 @@ export default function QualityDashboard({
       try {
         await setDoc(doc(db, "quality_evaluations", docId), {
           year: selectedYear,
-          quarter: selectedQuarter,
+          quarter: effectiveQuarter,
           evaluator: section.evaluator,
           team: section.team,
           csr_name: csrName,
@@ -419,7 +421,7 @@ export default function QualityDashboard({
         setSaveStatus("idle");
       }
     }, 450);
-  }, [selectedYear, selectedQuarter, evalData]);
+  }, [selectedYear, selectedQuarter, trainerMonth, evalData]);
 
   // Section CSRs strictly pulled and deduplicated from live team_members
   const sectionCSRs = useMemo(() => {
@@ -482,16 +484,17 @@ export default function QualityDashboard({
     const weeksWithData = new Set<string>();
     const csrTotals: Record<string, { sum: number; count: number }> = {};
 
-    // Special handling for Trainer (Mohammed Azad): open count by month and quarter
+    // Special handling for Trainer (Mohammed Azad): open count by month
     if (isTrainer) {
       let trainerSum = 0;
       let trainerCount = 0;
       let trainerPass = 0;
       const csrTrainerAvgs: { name: string; avg: number }[] = [];
+      const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
 
       currentCsrs.forEach(csrName => {
         const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        const docId = `${selectedYear}_${selectedQuarter}_mohammed_azad_${slug}`;
+        const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
         const scores = evalData[docId]?.scores || {};
 
         let agentSum = 0;
@@ -761,23 +764,97 @@ export default function QualityDashboard({
   // Auto-expand trainer column count if higher evaluation indexes exist in data
   useEffect(() => {
     if (!isTrainer) return;
-    let maxIdx = 5;
+    let maxFoundWithData = 0;
+    const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
     currentCsrs.forEach(csrName => {
       const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-      const docId = `${selectedYear}_${selectedQuarter}_mohammed_azad_${slug}`;
+      const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
       const scores = evalData[docId]?.scores || {};
       Object.keys(scores).forEach(k => {
         const match = k.match(new RegExp(`^m${trainerMonth}_eval_(\\d+)$`));
-        if (match) {
+        if (match && scores[k] && scores[k] !== "-") {
           const idx = parseInt(match[1], 10);
-          if (idx > maxIdx) maxIdx = idx;
+          if (idx > maxFoundWithData) maxFoundWithData = idx;
         }
       });
     });
-    if (maxIdx > trainerColCount) {
-      setTrainerColCount(maxIdx);
+    if (maxFoundWithData > trainerColCount) {
+      setTrainerColCount(maxFoundWithData);
     }
-  }, [isTrainer, trainerMonth, selectedYear, selectedQuarter, evalData, currentCsrs, trainerColCount]);
+  }, [isTrainer, trainerMonth, selectedYear, evalData, currentCsrs, trainerColCount]);
+
+  // Remove trainer evaluation column (shifts remaining columns or clears column data)
+  const handleRemoveTrainerColumn = async (colIndex: number) => {
+    if (trainerColCount <= 1) return;
+    const newCount = trainerColCount - 1;
+    const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
+
+    for (const csrName of currentCsrs) {
+      const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+      const docData = evalData[docId];
+      if (!docData) continue;
+
+      const scores = { ...(docData.scores || {}) };
+      const notes = { ...(docData.notes || {}) };
+      let changed = false;
+
+      if (colIndex === trainerColCount) {
+        // Removing the last column
+        const key = `m${trainerMonth}_eval_${colIndex}`;
+        if (scores[key] !== undefined) {
+          delete scores[key];
+          changed = true;
+        }
+        if (notes[key] !== undefined) {
+          delete notes[key];
+          changed = true;
+        }
+      } else {
+        // Shift columns above colIndex down
+        for (let c = colIndex; c < trainerColCount; c++) {
+          const currKey = `m${trainerMonth}_eval_${c}`;
+          const nextKey = `m${trainerMonth}_eval_${c + 1}`;
+          if (scores[nextKey] !== undefined) {
+            scores[currKey] = scores[nextKey];
+          } else {
+            delete scores[currKey];
+          }
+          if (notes[nextKey] !== undefined) {
+            notes[currKey] = notes[nextKey];
+          } else {
+            delete notes[currKey];
+          }
+          changed = true;
+        }
+        delete scores[`m${trainerMonth}_eval_${trainerColCount}`];
+        delete notes[`m${trainerMonth}_eval_${trainerColCount}`];
+      }
+
+      if (changed) {
+        setEvalData(prev => ({
+          ...prev,
+          [docId]: {
+            ...docData,
+            scores,
+            notes,
+            updated_at: new Date().toISOString()
+          }
+        }));
+        try {
+          await setDoc(doc(db, "quality_evaluations", docId), {
+            scores,
+            notes,
+            updated_at: new Date().toISOString()
+          }, { merge: true });
+        } catch (err) {
+          console.error("Error updating doc on remove column:", err);
+        }
+      }
+    }
+
+    setTrainerColCount(newCount);
+  };
 
   // Profile modal opening
   const handleOpenProfile = () => {
@@ -860,7 +937,8 @@ export default function QualityDashboard({
   const handleOpenNote = (csrName: string, key: string, callLabel: string) => {
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
     const existingNote = (evalData[docId]?.notes || {})[key] || "";
     const scoreVal = (evalData[docId]?.scores || {})[key] || "";
 
@@ -880,7 +958,8 @@ export default function QualityDashboard({
     const { csrName, key, noteText } = activeNoteModal;
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
 
     try {
       const updatedNotes = {
@@ -895,7 +974,7 @@ export default function QualityDashboard({
       setEvalData(prev => {
         const currentDoc = prev[docId] || {
           year: selectedYear,
-          quarter: selectedQuarter,
+          quarter: effectiveQuarter,
           evaluator: currentSection.evaluator,
           team: currentSection.team,
           csr_name: csrName,
@@ -914,7 +993,7 @@ export default function QualityDashboard({
 
       await setDoc(doc(db, "quality_evaluations", docId), {
         year: selectedYear,
-        quarter: selectedQuarter,
+        quarter: effectiveQuarter,
         evaluator: currentSection.evaluator,
         team: currentSection.team,
         csr_name: csrName,
@@ -937,7 +1016,8 @@ export default function QualityDashboard({
     const { csrName, key } = activeNoteModal;
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
 
     try {
       const updatedNotes = { ...((evalData[docId]?.notes) || {}) };
@@ -1022,8 +1102,175 @@ export default function QualityDashboard({
     }
   };
 
-  // Export Week Data to PDF (Replacing Clear Week Data button)
+  // Export Week / Month Data to PDF
   const handleExportPDF = () => {
+    if (isTrainer) {
+      const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
+      const rowsData = currentCsrs.map((csrName, idx) => {
+        const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+        const scores = evalData[docId]?.scores || {};
+        const notes = evalData[docId]?.notes || {};
+
+        let sum = 0; let count = 0;
+        const evalVals = Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => {
+          const key = `m${trainerMonth}_eval_${cNum}`;
+          const val = scores[key] ?? "-";
+          const note = notes[key] ?? "";
+          if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
+            const n = parseFloat(val);
+            if (!isNaN(n)) { sum += n; count++; }
+          }
+          return { val, note };
+        });
+
+        const agentAvg = count > 0 ? (sum / count).toFixed(1) + "%" : "-";
+        return {
+          idx: idx + 1,
+          csrName,
+          evalVals,
+          agentAvg
+        };
+      });
+
+      const colAverages = Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => {
+        const key = `m${trainerMonth}_eval_${cNum}`;
+        const nums: number[] = [];
+        currentCsrs.forEach(csrName => {
+          const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+          const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+          const val = (evalData[docId]?.scores || {})[key];
+          if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
+            const n = parseFloat(val);
+            if (!isNaN(n)) nums.push(n);
+          }
+        });
+        return nums.length > 0 ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) + "%" : "-";
+      });
+
+      let allSum = 0; let allCnt = 0;
+      currentCsrs.forEach(csrName => {
+        const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+        const scores = evalData[docId]?.scores || {};
+        for (let c = 1; c <= trainerColCount; c++) {
+          const val = scores[`m${trainerMonth}_eval_${c}`];
+          if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
+            const n = parseFloat(val);
+            if (!isNaN(n)) { allSum += n; allCnt++; }
+          }
+        }
+      });
+      const totalMonthAvg = allCnt > 0 ? (allSum / allCnt).toFixed(1) + "%" : "-";
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Trainer Evaluation Report - ${MONTH_NAMES[trainerMonth]} ${selectedYear}</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm 15mm; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; background: #fff; }
+            .header-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            .logo { max-height: 48px; object-fit: contain; }
+            .title-area h1 { font-size: 20px; font-weight: 900; color: #0d9488; margin: 0 0 3px 0; }
+            .title-area p { font-size: 11px; color: #64748b; margin: 0; font-weight: 500; }
+            .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+            .meta-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; }
+            .meta-item.highlight { background: #f0fdfa; border-color: #99f6e4; }
+            .meta-item .label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
+            .meta-item .val { font-size: 13px; font-weight: 800; color: #0f172a; }
+            .meta-item.highlight .val { color: #0d9488; }
+            .data-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px; }
+            .data-table th { background-color: #f1f5f9; color: #334155; font-weight: 800; text-align: center; padding: 7px 4px; border: 1px solid #cbd5e1; font-size: 10px; }
+            .data-table th.agent-col { text-align: left; padding-left: 8px; }
+            .data-table th.score-header { background-color: #0d9488; color: #ffffff; }
+            .data-table td { border: 1px solid #e2e8f0; padding: 6px 4px; text-align: center; vertical-align: middle; }
+            .data-table td.agent-cell { text-align: left; padding-left: 8px; font-weight: 700; color: #0f172a; }
+            tr.total-row td { background-color: #f0fdfa !important; color: #0f766e !important; font-weight: 900; font-size: 11px; border-top: 2px solid #0d9488; border-bottom: 2px solid #0d9488; padding: 8px 4px; }
+            tr.total-row td.total-avg-cell { background-color: #0d9488 !important; color: #ffffff !important; font-size: 12px; font-weight: 900; }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td style="width: 130px; vertical-align: middle;">
+                <img src="${window.location.origin}/logo.webp" class="logo" alt="FIB Logo" />
+              </td>
+              <td class="title-area" style="vertical-align: middle;">
+                <h1>Call Training Evaluation Report</h1>
+                <p>Official Monthly Call Training Quality Evaluation Summary • Morning & Evening Teams</p>
+              </td>
+              <td style="text-align: right; vertical-align: middle;">
+                <div style="font-size: 10px; color: #64748b;">
+                  <div>Export Date: <strong>${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></div>
+                  <div style="margin-top: 2px;">Trainer: <strong style="color: #0d9488;">Mohammed Azad</strong></div>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="label">Year & Month</div>
+              <div class="val">${selectedYear} • ${MONTH_NAMES[trainerMonth]}</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Scope</div>
+              <div class="val">${currentCsrs.length} Call Agents (Morning & Evening)</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Trainer</div>
+              <div class="val">Mohammed Azad</div>
+            </div>
+            <div class="meta-item highlight">
+              <div class="label">Team Month Avg</div>
+              <div class="val">${totalMonthAvg}</div>
+            </div>
+          </div>
+
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 32px;">#</th>
+                <th class="agent-col" style="min-width: 170px;">Agent Name</th>
+                ${Array.from({ length: trainerColCount }, (_, i) => i + 1).map(c => `<th style="width: 65px;">Eval ${c}</th>`).join('')}
+                <th class="score-header" style="width: 95px;">${MONTH_NAMES[trainerMonth]} Avg</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsData.map(r => `
+                <tr>
+                  <td style="color: #94a3b8; font-size: 10px; font-weight: 600;">${r.idx}</td>
+                  <td class="agent-cell">${r.csrName}</td>
+                  ${r.evalVals.map(e => `<td><span style="font-weight: 800;">${e.val}</span></td>`).join('')}
+                  <td><span style="font-weight: 900; color: #0d9488;">${r.agentAvg}</span></td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="2" style="text-align: left; padding-left: 12px; text-transform: uppercase;">Team Average</td>
+                ${colAverages.map(avg => `<td>${avg}</td>`).join('')}
+                <td class="total-avg-cell">${totalMonthAvg}</td>
+              </tr>
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      return;
+    }
+
     const rowsData = currentCsrs.map((csrName, idx) => {
       const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
       const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
@@ -1594,11 +1841,16 @@ export default function QualityDashboard({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-emerald-200">
-                    QA Evaluator Performance
+                    {isTrainer ? "Call Training Performance" : "QA Evaluator Performance"}
                   </span>
-                  {selectedMonthFilter !== null && (
+                  {selectedMonthFilter !== null && !isTrainer && (
                     <span className="px-2 py-0.5 rounded-lg bg-white/20 text-white text-[10px] font-black tracking-wider uppercase backdrop-blur-xs">
                       {MONTH_NAMES[selectedMonthFilter]}
+                    </span>
+                  )}
+                  {isTrainer && (
+                    <span className="px-2 py-0.5 rounded-lg bg-teal-500/40 text-white text-[10px] font-black tracking-wider uppercase backdrop-blur-xs border border-teal-300/30">
+                      {MONTH_NAMES[trainerMonth]}
                     </span>
                   )}
                 </div>
@@ -1612,69 +1864,71 @@ export default function QualityDashboard({
             {/* Top Card Controls: Period Toggle (Quarter, H1, H2, Full Year) & Team Switcher for Admin/Manager */}
             <div className="flex flex-wrap items-center gap-2">
               
-              {/* Card Summary Period Selector */}
-              <div className="flex items-center gap-1 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMonthFilter(null);
-                    setCardPeriodMode("quarter");
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "quarter" && selectedMonthFilter === null
-                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
-                      : "text-white/80 hover:text-white hover:bg-white/10"
-                  }`}
-                  title="Quarter Summary"
-                >
-                  {selectedQuarter}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMonthFilter(null);
-                    setCardPeriodMode("h1");
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "h1" && selectedMonthFilter === null
-                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
-                      : "text-white/80 hover:text-white hover:bg-white/10"
-                  }`}
-                  title="Semi-Annual 1 (Q1 + Q2)"
-                >
-                  H1 (Semi)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMonthFilter(null);
-                    setCardPeriodMode("h2");
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "h2" && selectedMonthFilter === null
-                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
-                      : "text-white/80 hover:text-white hover:bg-white/10"
-                  }`}
-                  title="Semi-Annual 2 (Q3 + Q4)"
-                >
-                  H2 (Semi)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMonthFilter(null);
-                    setCardPeriodMode("year");
-                  }}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "year" && selectedMonthFilter === null
-                      ? "bg-white text-[#1C6B53] font-black shadow-xs" 
-                      : "text-white/80 hover:text-white hover:bg-white/10"
-                  }`}
-                  title="Full Year Summary"
-                >
-                  Full Year
-                </button>
-              </div>
+              {/* Card Summary Period Selector (Hidden for Trainer) */}
+              {!isTrainer && (
+                <div className="flex items-center gap-1 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMonthFilter(null);
+                      setCardPeriodMode("quarter");
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      cardPeriodMode === "quarter" && selectedMonthFilter === null
+                        ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                        : "text-white/80 hover:text-white hover:bg-white/10"
+                    }`}
+                    title="Quarter Summary"
+                  >
+                    {selectedQuarter}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMonthFilter(null);
+                      setCardPeriodMode("h1");
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      cardPeriodMode === "h1" && selectedMonthFilter === null
+                        ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                        : "text-white/80 hover:text-white hover:bg-white/10"
+                    }`}
+                    title="Semi-Annual 1 (Q1 + Q2)"
+                  >
+                    H1 (Semi)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMonthFilter(null);
+                      setCardPeriodMode("h2");
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      cardPeriodMode === "h2" && selectedMonthFilter === null
+                        ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                        : "text-white/80 hover:text-white hover:bg-white/10"
+                    }`}
+                    title="Semi-Annual 2 (Q3 + Q4)"
+                  >
+                    H2 (Semi)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMonthFilter(null);
+                      setCardPeriodMode("year");
+                    }}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      cardPeriodMode === "year" && selectedMonthFilter === null
+                        ? "bg-white text-[#1C6B53] font-black shadow-xs" 
+                        : "text-white/80 hover:text-white hover:bg-white/10"
+                    }`}
+                    title="Full Year Summary"
+                  >
+                    Full Year
+                  </button>
+                </div>
+              )}
 
 
               {canSwitchTeams && (
@@ -1703,30 +1957,34 @@ export default function QualityDashboard({
             {/* 1. Quality Avg */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
-                {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Avg` : "Quality Avg"}
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Quality Avg` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Avg` : "Quality Avg")}
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "—"}
               </div>
               <div className="text-[10px] text-emerald-300 font-semibold">
-                {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Quality %` : "Team Quality %"}
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Quality %` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Quality %` : "Team Quality %")}
               </div>
             </div>
 
-            {/* 2. Completed Weeks */}
+            {/* 2. Completed Weeks / Logged Evaluations */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
-              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Completed Weeks</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
+                {isTrainer ? "Logged Evaluations" : "Completed Weeks"}
+              </div>
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
-                {teamQualityStats.weeksCount} / {teamQualityStats.totalWeeksInPeriod}
+                {isTrainer ? teamQualityStats.totalCallsAudited : `${teamQualityStats.weeksCount} / ${teamQualityStats.totalWeeksInPeriod}`}
               </div>
               <div className="text-[10px] text-emerald-300 font-semibold">
-                {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Weeks Logged` : "Weeks Logged"}
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Calls Logged` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Weeks Logged` : "Weeks Logged")}
               </div>
             </div>
 
             {/* 3. Planned Quality */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
-              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Planned Quality</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
+                {isTrainer ? "Total Audits Planned" : "Planned Quality"}
+              </div>
               <div className="text-xl sm:text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.totalCallsAudited} / {teamQualityStats.totalTargetCalls}
               </div>
@@ -1736,13 +1994,13 @@ export default function QualityDashboard({
             {/* 4. Top QA Agent (On the Far Right) */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
-                {selectedMonthFilter !== null ? `Top QA (${MONTH_NAMES[selectedMonthFilter]})` : "Top QA Agent"}
+                {isTrainer ? `Top Agent (${MONTH_NAMES[trainerMonth]})` : (selectedMonthFilter !== null ? `Top QA (${MONTH_NAMES[selectedMonthFilter]})` : "Top QA Agent")}
               </div>
               <div className="text-base sm:text-lg font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
                 {teamQualityStats.topAgent}
               </div>
               <div className="text-[10px] text-emerald-300 font-semibold">
-                {selectedMonthFilter !== null ? "Highest Monthly Score" : "Highest Quarterly Score"}
+                {isTrainer ? "Highest Monthly Score" : (selectedMonthFilter !== null ? "Highest Monthly Score" : "Highest Quarterly Score")}
               </div>
             </div>
           </div>
@@ -1758,7 +2016,9 @@ export default function QualityDashboard({
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="appearance-none pl-3 pr-7 py-2 text-xs font-black rounded-xl bg-[#1C6B53] text-white shadow-xs outline-none cursor-pointer border-0"
+                className={`appearance-none pl-3 pr-7 py-2 text-xs font-black rounded-xl text-white shadow-xs outline-none cursor-pointer border-0 ${
+                  isTrainer ? "bg-[#0d9488]" : "bg-[#1C6B53]"
+                }`}
               >
                 {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
@@ -1839,72 +2099,87 @@ export default function QualityDashboard({
 
           {/* Scrollable Center & Right Controls */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
-            {/* Quarter Tabs (Q1, Q2, Q3, Q4) */}
-            <div className="flex items-center gap-1 shrink-0">
-              {QUARTERS.map(q => {
-                const isSel = selectedQuarter === q.id && (!isTrainer ? selectedMonthFilter === null : true);
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => {
-                      setSelectedQuarter(q.id);
-                      if (isTrainer) {
-                        const qIdx = QUARTERS.findIndex(item => item.id === q.id);
-                        setTrainerMonth((qIdx >= 0 ? qIdx : 0) * 3);
-                      } else {
-                        setSelectedMonthFilter(null);
-                        if (q.id === initialPeriod.quarter && selectedYear === initialPeriod.year) {
-                          setSelectedWeek(initialPeriod.week);
-                        } else {
-                          setSelectedWeek(1);
-                        }
-                      }
-                    }}
-                    className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                      isSel
-                        ? (isTrainer ? "bg-[#0d9488] text-white shadow-md shadow-[#0d9488]/30 scale-[1.02]" : "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]")
-                        : "text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                    }`}
-                  >
-                    {q.id}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Quarter Tabs (Q1, Q2, Q3, Q4) - ONLY FOR QA EVALUATORS, REMOVED FOR TRAINER */}
+            {!isTrainer && (
+              <>
+                <div className="flex items-center gap-1 shrink-0">
+                  {QUARTERS.map(q => {
+                    const isSel = selectedQuarter === q.id && selectedMonthFilter === null;
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => {
+                          setSelectedQuarter(q.id);
+                          setSelectedMonthFilter(null);
+                          if (q.id === initialPeriod.quarter && selectedYear === initialPeriod.year) {
+                            setSelectedWeek(initialPeriod.week);
+                          } else {
+                            setSelectedWeek(1);
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                          isSel
+                            ? "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]"
+                            : "text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                        }`}
+                      >
+                        {q.id}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+              </>
+            )}
 
-            <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
-
-            {/* TRAINER VIEW: Month Tabs for chosen Quarter & Add Eval Column */}
+            {/* TRAINER VIEW: All 12 Complete Month Tabs (Jan to Dec) & Add / Remove Column Buttons */}
             {isTrainer ? (
               <div className="flex items-center gap-2 shrink-0">
+                {/* 12 Months Tabs */}
                 <div className="flex items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-900/70 rounded-xl border border-gray-200/80 dark:border-gray-700/80">
-                  {quarterMonthIndices.map(mIdx => {
+                  {MONTH_NAMES.map((mName, mIdx) => {
                     const isSel = trainerMonth === mIdx;
                     return (
                       <button
                         key={mIdx}
                         type="button"
-                        onClick={() => setTrainerMonth(mIdx)}
-                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        onClick={() => {
+                          setTrainerMonth(mIdx);
+                          setSelectedQuarter(`Q${Math.floor(mIdx / 3) + 1}`);
+                        }}
+                        className={`px-2.5 sm:px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                           isSel
-                            ? "bg-[#0d9488] text-white shadow-xs font-black"
+                            ? "bg-[#0d9488] text-white shadow-xs font-black scale-[1.02]"
                             : "text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800"
                         }`}
                       >
-                        {MONTH_NAMES[mIdx]}
+                        {mName}
                       </button>
                     );
                   })}
                 </div>
 
+                {/* Add Evaluation Column Button */}
                 <button
                   type="button"
                   onClick={() => setTrainerColCount(prev => prev + 1)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-[#0d9488] dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-bold hover:bg-teal-100 dark:hover:bg-teal-900/40 transition cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0d9488] hover:bg-[#0b7f74] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
                   title="Add Evaluation Column"
                 >
-                  <Plus size={13} />
-                  <span>Add Eval</span>
+                  <Plus size={13} className="stroke-[2.5]" />
+                  <span>Add</span>
+                </button>
+
+                {/* Remove Evaluation Column Button */}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTrainerColumn(trainerColCount)}
+                  disabled={trainerColCount <= 1}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/80 text-xs font-black transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                  title="Remove Last Evaluation Column"
+                >
+                  <Trash2 size={13} />
+                  <span>Remove</span>
                 </button>
               </div>
             ) : (
@@ -1984,10 +2259,23 @@ export default function QualityDashboard({
                   {isTrainer ? (
                     <>
                       {Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => (
-                        <th key={cNum} className="px-2.5 py-3 text-center min-w-[95px]">
-                          <div className="flex items-center justify-center gap-1 text-teal-800 dark:text-teal-300 font-bold">
+                        <th key={cNum} className="px-2.5 py-3 text-center min-w-[100px] relative group/col">
+                          <div className="flex items-center justify-center gap-1.5 text-teal-800 dark:text-teal-300 font-bold">
                             <PhoneIncoming size={12} />
                             <span>Eval {cNum}</span>
+                            {trainerColCount > 1 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveTrainerColumn(cNum);
+                                }}
+                                className="opacity-0 group-hover/col:opacity-100 hover:opacity-100 p-0.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/60 transition cursor-pointer"
+                                title={`Remove Eval ${cNum}`}
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            )}
                           </div>
                         </th>
                       ))}
@@ -2040,7 +2328,8 @@ export default function QualityDashboard({
                   currentCsrs.map((csrName, agentIdx) => {
                     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
                     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                    const docId = `${selectedYear}_${selectedQuarter}_${sectionSlug}_${slug}`;
+                    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+                    const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
                     const currentDoc = evalData[docId] || {};
                     const currentScores = currentDoc.scores || {};
                     const currentNotes = currentDoc.notes || {};
@@ -2376,9 +2665,10 @@ export default function QualityDashboard({
                         {Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => {
                           const key = `m${trainerMonth}_eval_${cNum}`;
                           const nums: number[] = [];
+                          const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
                           currentCsrs.forEach(csrName => {
                             const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                            const docId = `${selectedYear}_${selectedQuarter}_mohammed_azad_${slug}`;
+                            const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
                             const val = (evalData[docId]?.scores || {})[key];
                             if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
                               const n = parseFloat(val);
@@ -2395,9 +2685,10 @@ export default function QualityDashboard({
 
                         {(() => {
                           let allSum = 0; let allCnt = 0;
+                          const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
                           currentCsrs.forEach(csrName => {
                             const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                            const docId = `${selectedYear}_${selectedQuarter}_mohammed_azad_${slug}`;
+                            const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
                             const scores = evalData[docId]?.scores || {};
                             for (let c = 1; c <= trainerColCount; c++) {
                               const val = scores[`m${trainerMonth}_eval_${c}`];
