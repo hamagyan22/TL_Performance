@@ -2504,8 +2504,8 @@ export default function QualityDashboard({
           </div>
         </div>
 
-        {/* Toolbar: Quarter & Week Selection Bar for Data Entry */}
-        <div className="relative z-30 flex flex-wrap items-center gap-2.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full shadow-xs">
+        {/* Toolbar: Quarter & Week Selection Bar for Data Entry (Single Row) */}
+        <div className="relative z-30 flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full shadow-xs flex-nowrap overflow-x-auto scrollbar-hide">
           
           {/* Static Left Controls: Year & Month */}
           <div className="flex items-center gap-2 shrink-0">
@@ -2593,147 +2593,144 @@ export default function QualityDashboard({
             )}
           </div>
 
-          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />
 
-          {/* Static Center & Right Controls (No horizontal scrollbar, fixed and wraps cleanly) */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Mohammed Dlshad: Shift Switcher (Main Shift vs C shift) */}
-            {isChatTeam && (
-              <>
-                <div className="flex items-center p-0.5 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setDlshadShift("main")}
-                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                      dlshadShift === "main"
-                        ? "bg-[#1C6B53] text-white shadow-xs scale-[1.02]"
-                        : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40"
-                    }`}
-                  >
-                    Main Shift
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDlshadShift("c_shift")}
-                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                      dlshadShift === "c_shift"
-                        ? "bg-[#00A991] text-white shadow-xs scale-[1.02]"
-                        : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40"
-                    }`}
-                  >
-                    C shift
-                  </button>
-                </div>
-
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
-              </>
-            )}
-
-            {/* Quarter Tabs (Q1, Q2, Q3, Q4) - ONLY FOR QA EVALUATORS, REMOVED FOR TRAINER */}
-            {!isTrainer && (
-              <>
-                <div className="flex items-center gap-1 shrink-0">
-                  {QUARTERS.map(q => {
-                    const isSel = selectedQuarter === q.id && selectedMonthFilter === null;
-                    return (
-                      <button
-                        key={q.id}
-                        onClick={() => {
-                          setSelectedQuarter(q.id);
-                          setSelectedMonthFilter(null);
-                          if (q.id === initialPeriod.quarter && selectedYear === initialPeriod.year) {
-                            setSelectedWeek(initialPeriod.week);
-                          } else {
-                            setSelectedWeek(1);
-                          }
-                        }}
-                        className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                          isSel
-                            ? "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]"
-                            : "text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                        }`}
-                      >
-                        {q.id}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
-              </>
-            )}
-
-            {/* TRAINER VIEW: All 12 Complete Month Tabs (Jan to Dec) & Add / Remove Column Buttons */}
-            {isTrainer ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {/* 12 Months Tabs */}
-                <div className="flex flex-wrap items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-900/70 rounded-xl border border-gray-200/80 dark:border-gray-700/80">
-                  {MONTH_NAMES.map((mName, mIdx) => {
-                    const isSel = trainerMonth === mIdx;
-                    return (
-                      <button
-                        key={mIdx}
-                        type="button"
-                        onClick={() => {
-                          setTrainerMonth(mIdx);
-                          setSelectedQuarter(`Q${Math.floor(mIdx / 3) + 1}`);
-                        }}
-                        className={`px-2.5 sm:px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                          isSel
-                            ? "bg-[#0d9488] text-white shadow-xs font-black scale-[1.02]"
-                            : "text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800"
-                        }`}
-                      >
-                        {mName}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Add Evaluation Column Button */}
+          {/* Mohammed Dlshad: Shift Switcher (Main Shift vs C shift) */}
+          {isChatTeam && (
+            <>
+              <div className="flex items-center p-0.5 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setTrainerColCount(prev => prev + 1)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0d9488] hover:bg-[#0b7f74] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
-                  title="Add Evaluation Column"
+                  onClick={() => setDlshadShift("main")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    dlshadShift === "main"
+                      ? "bg-[#1C6B53] text-white shadow-xs scale-[1.02]"
+                      : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40"
+                  }`}
                 >
-                  <Plus size={13} className="stroke-[2.5]" />
-                  <span>Add</span>
+                  Main Shift
                 </button>
-
-                {/* Remove Evaluation Column Button */}
                 <button
                   type="button"
-                  onClick={() => handleRemoveTrainerColumn(trainerColCount)}
-                  disabled={trainerColCount <= 1}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/80 text-xs font-black transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                  title="Remove Last Evaluation Column"
+                  onClick={() => setDlshadShift("c_shift")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    dlshadShift === "c_shift"
+                      ? "bg-[#00A991] text-white shadow-xs scale-[1.02]"
+                      : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40"
+                  }`}
                 >
-                  <Trash2 size={13} />
-                  <span>Remove</span>
+                  C shift
                 </button>
               </div>
-            ) : (
-              /* REGULAR QA VIEW: 12 Week Tabs */
-              <div className="flex flex-wrap items-center gap-1">
-                {weeksList.map(w => {
-                  const isSel = selectedWeek === w;
+
+              <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />
+            </>
+          )}
+
+          {/* Quarter Tabs (Q1, Q2, Q3, Q4) - ONLY FOR QA EVALUATORS, REMOVED FOR TRAINER */}
+          {!isTrainer && (
+            <>
+              <div className="flex items-center gap-1 shrink-0">
+                {QUARTERS.map(q => {
+                  const isSel = selectedQuarter === q.id && selectedMonthFilter === null;
                   return (
                     <button
-                      key={w}
-                      onClick={() => setSelectedWeek(w)}
-                      className={`px-2.5 sm:px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                      key={q.id}
+                      onClick={() => {
+                        setSelectedQuarter(q.id);
+                        setSelectedMonthFilter(null);
+                        if (q.id === initialPeriod.quarter && selectedYear === initialPeriod.year) {
+                          setSelectedWeek(initialPeriod.week);
+                        } else {
+                          setSelectedWeek(1);
+                        }
+                      }}
+                      className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                         isSel
-                          ? "bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]"
-                          : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60"
+                          ? "bg-[#00A991] text-white shadow-md shadow-[#00A991]/30 scale-[1.02]"
+                          : "text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
                       }`}
                     >
-                      Week {w}
+                      {q.id}
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
+              <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />
+            </>
+          )}
+
+          {/* TRAINER VIEW: All 12 Complete Month Tabs (Jan to Dec) & Add / Remove Column Buttons */}
+          {isTrainer ? (
+            <div className="flex items-center gap-2 shrink-0">
+              {/* 12 Months Tabs */}
+              <div className="flex items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-900/70 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shrink-0">
+                {MONTH_NAMES.map((mName, mIdx) => {
+                  const isSel = trainerMonth === mIdx;
+                  return (
+                    <button
+                      key={mIdx}
+                      type="button"
+                      onClick={() => {
+                        setTrainerMonth(mIdx);
+                        setSelectedQuarter(`Q${Math.floor(mIdx / 3) + 1}`);
+                      }}
+                      className={`px-2.5 sm:px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                        isSel
+                          ? "bg-[#0d9488] text-white shadow-xs font-black scale-[1.02]"
+                          : "text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800"
+                      }`}
+                    >
+                      {mName}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Add Evaluation Column Button */}
+              <button
+                type="button"
+                onClick={() => setTrainerColCount(prev => prev + 1)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0d9488] hover:bg-[#0b7f74] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
+                title="Add Evaluation Column"
+              >
+                <Plus size={13} className="stroke-[2.5]" />
+                <span>Add</span>
+              </button>
+
+              {/* Remove Evaluation Column Button */}
+              <button
+                type="button"
+                onClick={() => handleRemoveTrainerColumn(trainerColCount)}
+                disabled={trainerColCount <= 1}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/80 text-xs font-black transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                title="Remove Last Evaluation Column"
+              >
+                <Trash2 size={13} />
+                <span>Remove</span>
+              </button>
+            </div>
+          ) : (
+            /* REGULAR QA VIEW: 12 Week Tabs */
+            <div className="flex items-center gap-1 shrink-0">
+              {weeksList.map(w => {
+                const isSel = selectedWeek === w;
+                return (
+                  <button
+                    key={w}
+                    onClick={() => setSelectedWeek(w)}
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                      isSel
+                        ? "bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]"
+                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60"
+                    }`}
+                  >
+                    Week {w}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
         </div>
 
