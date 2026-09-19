@@ -989,13 +989,25 @@ export default function QualityDashboard({
     try {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, forceNewPassword);
-        await setDoc(doc(db, "users", auth.currentUser.uid), {
+        const isJihad = auth.currentUser.email?.toLowerCase().includes("mohammed.jihad");
+        const docUpdates: any = {
           mustChangePassword: false,
           passwordUpdated: true,
           passwordChangedAt: new Date().toISOString(),
-        }, { merge: true });
+        };
+        if (isJihad) {
+          docUpdates.email = "mohammed.jihad@agent.com";
+          docUpdates.name = "Mohammed Jihad";
+          docUpdates.evaluator = "Mohammed Jihad";
+          docUpdates.team = "Younis Kamal Team";
+          docUpdates.role = "qa";
+        }
+        await setDoc(doc(db, "users", auth.currentUser.uid), docUpdates, { merge: true });
 
         if (userProfile) {
+          if (isJihad) {
+            userProfile.email = "mohammed.jihad@agent.com";
+          }
           userProfile.mustChangePassword = false;
           userProfile.passwordUpdated = true;
         }

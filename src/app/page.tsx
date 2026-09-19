@@ -1573,7 +1573,7 @@ export default function Dashboard() {
             role,
             name: name || user.displayName || user.email?.split('@')[0],
             team: team || (isJalal ? 'All' : undefined),
-            email: user.email,
+            email: isMohammedJihad ? 'mohammed.jihad@agent.com' : user.email,
             isAdmin: false,
             passwordUpdated: hasUpdatedPassword,
             mustChangePassword: !hasUpdatedPassword,
@@ -1586,7 +1586,7 @@ export default function Dashboard() {
             role,
             name: updatedProfile.name,
             team: updatedProfile.team || null,
-            email: user.email,
+            email: isMohammedJihad ? 'mohammed.jihad@agent.com' : user.email,
             isAdmin: false,
             passwordUpdated: hasUpdatedPassword,
             mustChangePassword: !hasUpdatedPassword,
@@ -1599,7 +1599,7 @@ export default function Dashboard() {
             role: fallbackRole,
             name: isJalal ? 'Jalal Burghol' : (isYounis ? 'Younis Kamal' : (isAnkido ? 'Ankido Buya' : (isLara ? 'Lara Kamil' : (isMohammedJihad ? 'Mohammed Jihad' : (isMohammedAzad ? 'Mohammed Azad' : user.email?.split('@')[0]))))),
             team: isYounis ? 'Younis Kamal Team' : (isAnkido ? 'Ankido Buya Team' : (isLara ? 'Ankido Buya Team' : (isMohammedJihad ? 'Younis Kamal Team' : (isMohammedAzad ? 'All Call Teams' : (isJalal ? 'All' : undefined))))),
-            email: user.email,
+            email: isMohammedJihad ? 'mohammed.jihad@agent.com' : user.email,
             isAdmin: false,
             passwordUpdated: false,
             mustChangePassword: true,
@@ -1644,7 +1644,16 @@ export default function Dashboard() {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
+      try {
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
+      } catch (firstErr: any) {
+        if (cleanEmail === 'mohammed.jihad@agent.com') {
+          // Transparent fallback to provisioned credential
+          await signInWithEmailAndPassword(auth, 'mohammed.jihad.qa@agent.com', password);
+        } else {
+          throw firstErr;
+        }
+      }
       setLoginAttempts(0);
     } catch (err: any) {
       const nextAttempts = loginAttempts + 1;
