@@ -7,7 +7,7 @@ import { updatePassword } from "firebase/auth";
 import { 
   Award, ArrowLeft, Search, Users, Check, Save, Download, 
   Sun, Moon, ChevronDown, CheckCheck, RefreshCw, Calendar, Plus,
-  LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Trash2, FileText, MessageSquare
+  LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Trash2, FileText, MessageSquare, ShieldCheck
 } from "lucide-react";
 
 interface QualityDashboardProps {
@@ -189,6 +189,26 @@ function computeWeekAvg(
   return avg.toFixed(2);
 }
 
+function validatePasswordSecurity(password: string): { isValid: boolean; error: string } {
+  if (!password || password.length < 8) {
+    return { isValid: false, error: "Password must be at least 8 characters long." };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, error: "Password must include at least one uppercase letter (A-Z)." };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, error: "Password must include at least one lowercase letter (a-z)." };
+  }
+  if (!/[0-9]/.test(password) && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { isValid: false, error: "Password must include at least one number or special symbol." };
+  }
+  const lower = password.toLowerCase();
+  if (lower === 'password123' || lower === 'password123!' || lower === 'password' || lower === '12345678') {
+    return { isValid: false, error: "This password is too common or matches the initial default password. Please choose a unique password." };
+  }
+  return { isValid: true, error: "" };
+}
+
 export default function QualityDashboard({
   userProfile,
   onBack,
@@ -212,6 +232,23 @@ export default function QualityDashboard({
   // Unified month filter: controls both top card and agents table (null = all months / standard view, 0-11 = Jan-Dec)
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<number | null>(null);
   const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
+
+  // Force Password Change for first login or after password reset
+  const [forcePasswordChange, setForcePasswordChange] = useState<boolean>(
+    userProfile?.passwordUpdated !== true || userProfile?.mustChangePassword === true
+  );
+  const [forceNewPassword, setForceNewPassword] = useState("");
+  const [forceConfirmPassword, setForceConfirmPassword] = useState("");
+  const [forcePasswordError, setForcePasswordError] = useState("");
+  const [forcePasswordLoading, setForcePasswordLoading] = useState(false);
+
+  useEffect(() => {
+    if (userProfile) {
+      if (userProfile.passwordUpdated !== true || userProfile.mustChangePassword === true) {
+        setForcePasswordChange(true);
+      }
+    }
+  }, [userProfile]);
 
   const defaultSectionId = useMemo(() => {
     const email = (userProfile?.email || "").toLowerCase();
@@ -930,6 +967,49 @@ export default function QualityDashboard({
       setProfileError(err.message || "Failed to update profile");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleForcePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForcePasswordError("");
+
+    if (forceNewPassword !== forceConfirmPassword) {
+      setForcePasswordError("Passwords do not match");
+      return;
+    }
+
+    const check = validatePasswordSecurity(forceNewPassword);
+    if (!check.isValid) {
+      setForcePasswordError(check.error);
+      return;
+    }
+
+    setForcePasswordLoading(true);
+    try {
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, forceNewPassword);
+        await setDoc(doc(db, "users", auth.currentUser.uid), {
+          mustChangePassword: false,
+          passwordUpdated: true,
+          passwordChangedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        if (userProfile) {
+          userProfile.mustChangePassword = false;
+          userProfile.passwordUpdated = true;
+        }
+
+        setForcePasswordChange(false);
+      }
+    } catch (err: any) {
+      if (err.code === "auth/requires-recent-login") {
+        setForcePasswordError("Security session expired. Please log out and sign back in to change your password.");
+      } else {
+        setForcePasswordError(err.message || "Failed to update password");
+      }
+    } finally {
+      setForcePasswordLoading(false);
     }
   };
 
@@ -1954,53 +2034,53 @@ export default function QualityDashboard({
 
           {/* Metric KPI Cards Grid: 4 Clean, Balanced, Modern Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* 1. Quality Avg */}
+            {/* 1. Quality Avg / Score */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
-                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Quality Avg` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Avg` : "Quality Avg")}
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Quality Score` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Score` : "Quality Score")}
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "—"}
               </div>
               <div className="text-[10px] text-emerald-300 font-semibold">
-                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Quality %` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Quality %` : "Team Quality %")}
+                {isTrainer ? "Average Quality Score" : (selectedMonthFilter !== null ? "Monthly Quality Score" : "Overall Quality Average")}
               </div>
             </div>
 
             {/* 2. Completed Weeks / Logged Evaluations */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
-                {isTrainer ? "Logged Evaluations" : "Completed Weeks"}
+                {isTrainer ? "Completed Evaluations" : "Completed Weeks"}
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {isTrainer ? teamQualityStats.totalCallsAudited : `${teamQualityStats.weeksCount} / ${teamQualityStats.totalWeeksInPeriod}`}
               </div>
               <div className="text-[10px] text-emerald-300 font-semibold">
-                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Calls Logged` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Weeks Logged` : "Weeks Logged")}
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Total Logged` : (selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Weeks Logged` : "Weeks Logged")}
               </div>
             </div>
 
-            {/* 3. Planned Quality */}
+            {/* 3. Evaluation Target (Formally planned evaluations, no 'Audit') */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
-                {isTrainer ? "Total Audits Planned" : "Planned Quality"}
+                {isTrainer ? "Evaluation Target" : "Target Progress"}
               </div>
               <div className="text-xl sm:text-2xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.totalCallsAudited} / {teamQualityStats.totalTargetCalls}
               </div>
-              <div className="text-[10px] text-emerald-300 font-semibold">{teamQualityStats.auditProgressPercent}% Completed</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">{teamQualityStats.auditProgressPercent}% Target Achieved</div>
             </div>
 
-            {/* 4. Top QA Agent (On the Far Right) */}
+            {/* 4. Top QA Agent / Performer */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
               <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
-                {isTrainer ? `Top Agent (${MONTH_NAMES[trainerMonth]})` : (selectedMonthFilter !== null ? `Top QA (${MONTH_NAMES[selectedMonthFilter]})` : "Top QA Agent")}
+                {isTrainer ? `Top Performer (${MONTH_NAMES[trainerMonth]})` : (selectedMonthFilter !== null ? `Top Performer (${MONTH_NAMES[selectedMonthFilter]})` : "Top Performer")}
               </div>
               <div className="text-base sm:text-lg font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
                 {teamQualityStats.topAgent}
               </div>
               <div className="text-[10px] text-emerald-300 font-semibold">
-                {isTrainer ? "Highest Monthly Score" : (selectedMonthFilter !== null ? "Highest Monthly Score" : "Highest Quarterly Score")}
+                {isTrainer ? "Highest Monthly Score" : (selectedMonthFilter !== null ? "Highest Monthly Score" : "Highest Overall Score")}
               </div>
             </div>
           </div>
@@ -2989,6 +3069,96 @@ export default function QualityDashboard({
                   {savingProfile ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Mandatory Force Password Change Modal for QA First Login / After Reset */}
+      {forcePasswordChange && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overscroll-contain">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-7 sm:p-8 max-w-md w-full border border-gray-100 dark:border-gray-800 relative">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 mb-4 shadow-inner">
+                <ShieldCheck size={32} />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+                Security Password Update
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+                Welcome, <strong className="text-gray-800 dark:text-gray-200">{userProfile?.name || "User"}</strong>! Your password has been reset. To keep your account secure, please set your new personal password to continue to the dashboard.
+              </p>
+            </div>
+
+            {forcePasswordError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold rounded-xl">
+                {forcePasswordError}
+              </div>
+            )}
+
+            <form onSubmit={handleForcePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Min. 8 characters with letters & numbers"
+                  value={forceNewPassword}
+                  onChange={(e) => setForceNewPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5 text-gray-500 dark:text-gray-400">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Re-enter new password"
+                  value={forceConfirmPassword}
+                  onChange={(e) => setForceConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/70 dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-[#1C6B53] text-sm font-medium transition"
+                />
+              </div>
+
+              {/* Password Requirements Checklist */}
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                <p className="font-bold text-gray-700 dark:text-gray-300 mb-1">Security Requirements:</p>
+                <div className="flex items-center gap-1.5">
+                  <span className={forceNewPassword.length >= 8 ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                  <span>Minimum 8 characters</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={/[A-Z]/.test(forceNewPassword) && /[a-z]/.test(forceNewPassword) ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                  <span>Uppercase & lowercase letters</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={/[0-9]/.test(forceNewPassword) || /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(forceNewPassword) ? "text-emerald-500 font-bold" : "text-gray-400"}>•</span>
+                  <span>At least one number or special character</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={forcePasswordLoading}
+                className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold text-white bg-[#1C6B53] hover:bg-[#155a45] shadow-lg shadow-[#1C6B53]/25 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              >
+                {forcePasswordLoading ? "Updating Password..." : "Set New Password & Access Dashboard"}
+              </button>
+
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="w-full py-2.5 text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition text-center cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              )}
             </form>
           </div>
         </div>

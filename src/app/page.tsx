@@ -1499,7 +1499,7 @@ export default function Dashboard() {
         const isYounis = emailLower === 'younis.kamal@agent.com';
         const isAnkido = emailLower === 'ankido.buya@agent.com';
         const isLara = emailLower === 'lara.kamil@agent.com';
-        const isMohammedJihad = emailLower === 'mohammed.jihad@agent.com';
+        const isMohammedJihad = emailLower === 'mohammed.jihad@agent.com' || emailLower === 'mohammed.jihad.qa@agent.com' || emailLower.includes('mohammed.jihad');
         const isMohammedAzad = emailLower === 'mohammed.azad@agent.com';
         const isAgent = emailLower.endsWith('@agent.com');
 
