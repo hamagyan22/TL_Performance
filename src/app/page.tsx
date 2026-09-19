@@ -2828,18 +2828,6 @@ export default function Dashboard() {
                   </button>
                 )}
 
-                {isAdmin && (
-                  <button
-                    onClick={openManageModal}
-                    className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-[#1C6B53] dark:hover:text-emerald-300 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group cursor-pointer"
-                    title="Settings"
-                  >
-                    <div className="w-5 h-5 rounded-lg bg-[#1C6B53]/10 dark:bg-emerald-400/10 flex items-center justify-center text-[#1C6B53] dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                      <Settings size={13} />
-                    </div>
-                    <span className="hidden xs:inline sm:inline">Settings</span>
-                  </button>
-                )}
 
                 {(isAdmin || isManager) && (
                   <button
@@ -2888,15 +2876,28 @@ export default function Dashboard() {
 
               <div className="h-4 w-px bg-gray-200 dark:bg-gray-700/80 mx-0.5" />
 
-              {/* Logout Button */}
-              <button 
-                onClick={handleLogout} 
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all cursor-pointer"
-                title="Logout"
-              >
-                <LogOut size={14} />
-                <span className="hidden xs:inline sm:inline">Logout</span>
-              </button>
+              {/* Settings + Logout Group */}
+              <div className="flex items-center gap-1">
+                {isAdmin && (
+                  <button
+                    onClick={openManageModal}
+                    className="flex items-center justify-center w-8 h-8 rounded-xl text-gray-500 dark:text-gray-400 hover:text-[#1C6B53] dark:hover:text-emerald-400 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40 transition-all group cursor-pointer"
+                    title="Settings"
+                  >
+                    <Settings size={15} className="group-hover:rotate-45 transition-transform duration-200" />
+                  </button>
+                )}
+
+                {/* Logout Button */}
+                <button 
+                  onClick={handleLogout} 
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-950/40 transition-all cursor-pointer"
+                  title="Logout"
+                >
+                  <LogOut size={14} />
+                  <span className="hidden xs:inline sm:inline">Logout</span>
+                </button>
+              </div>
             </div>
           </div>
 
