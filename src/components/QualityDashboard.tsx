@@ -466,6 +466,93 @@ export default function QualityDashboard({
     }
   };
 
+  // Mohammed Azad Shift State: "training" (standard trainer view) or "call_mon" (Call Monitoring view)
+  const [azadShift, setAzadShift] = useState<"training" | "call_mon">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_azad_shift");
+      if (saved === "call_mon" || saved === "training") return saved;
+    }
+    return "training";
+  });
+  const [callMonRoster, setCallMonRoster] = useState<string[]>([]);
+  const [showAddCallMonModal, setShowAddCallMonModal] = useState(false);
+  const [callMonSearchTerm, setCallMonSearchTerm] = useState("");
+
+  const isCallMon = useMemo(() => {
+    return isTrainer && azadShift === "call_mon";
+  }, [isTrainer, azadShift]);
+
+  // Load and listen to Call Monitoring roster from Firestore and localStorage
+  useEffect(() => {
+    const savedLocal = localStorage.getItem("call_mon_roster");
+    if (savedLocal) {
+      try {
+        const parsed = JSON.parse(savedLocal);
+        if (Array.isArray(parsed)) setCallMonRoster(parsed);
+      } catch (e) {}
+    }
+
+    const unsubCallMon = onSnapshot(doc(db, "quality_evaluations", "config_call_mon_roster"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data?.agents)) {
+          setCallMonRoster(data.agents);
+          localStorage.setItem("call_mon_roster", JSON.stringify(data.agents));
+        }
+      }
+    }, (err) => {
+      console.error("Error listening to call_mon_roster:", err);
+    });
+
+    return () => unsubCallMon();
+  }, []);
+
+  // All agents from both Younis Kamal Team AND Ankido Buya Team (for Call Mon modal)
+  const allCallTeamMembers = useMemo(() => {
+    return rosterMembers
+      .filter(m => {
+        const t = (m.team || "").trim();
+        return (
+          t === "Younis Kamal Team" || t.toLowerCase().includes("younis") ||
+          t === "Ankido Buya Team" || t.toLowerCase().includes("ankido")
+        );
+      })
+      .map(m => ({ name: (m.agent_name || m.name || "").trim(), team: (m.team || "").trim() }))
+      .filter(m => Boolean(m.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rosterMembers]);
+
+  const handleAddCallMonAgent = async (agentName: string) => {
+    if (!agentName || callMonRoster.includes(agentName)) return;
+    const nextList = [...callMonRoster, agentName].sort((a, b) => a.localeCompare(b));
+    setCallMonRoster(nextList);
+    localStorage.setItem("call_mon_roster", JSON.stringify(nextList));
+    try {
+      await setDoc(doc(db, "quality_evaluations", "config_call_mon_roster"), {
+        year: selectedYear,
+        agents: nextList,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Error saving call_mon roster:", e);
+    }
+  };
+
+  const handleRemoveCallMonAgent = async (agentName: string) => {
+    const nextList = callMonRoster.filter(a => a !== agentName);
+    setCallMonRoster(nextList);
+    localStorage.setItem("call_mon_roster", JSON.stringify(nextList));
+    try {
+      await setDoc(doc(db, "quality_evaluations", "config_call_mon_roster"), {
+        year: selectedYear,
+        agents: nextList,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Error saving call_mon roster:", e);
+    }
+  };
+
   // Synchronize QA dashboard state to localStorage for persistence across browser refresh
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -514,6 +601,12 @@ export default function QualityDashboard({
       localStorage.setItem("qa_dlshad_shift", dlshadShift);
     }
   }, [dlshadShift]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_azad_shift", azadShift);
+    }
+  }, [azadShift]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -602,7 +695,7 @@ export default function QualityDashboard({
     rawVal: string
   ) => {
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : section.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = isCallMon ? "mohammed_azad_call_mon" : isCShift ? "mohammed_dlshad_c_shift" : section.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const isTrainerSection = section.id === "mohammed_azad" || section.evaluator.toLowerCase().includes("azad");
     const effectiveQuarter = isTrainerSection ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
@@ -661,7 +754,7 @@ export default function QualityDashboard({
         setSaveStatus("idle");
       }
     }, 450);
-  }, [selectedYear, selectedQuarter, trainerMonth, evalData, isCShift]);
+  }, [selectedYear, selectedQuarter, trainerMonth, evalData, isCShift, isCallMon]);
 
   // Section CSRs strictly pulled and deduplicated from live team_members
   const sectionCSRs = useMemo(() => {
@@ -690,14 +783,16 @@ export default function QualityDashboard({
 
   const currentCsrs = useMemo(() => {
     let list: string[] = [];
-    if (isCShift) {
+    if (isCallMon) {
+      list = callMonRoster;
+    } else if (isCShift) {
       list = cShiftRoster;
     } else {
       list = sectionCSRs[currentSection.id] || [];
     }
     if (!searchTerm.trim()) return list;
     return list.filter(name => name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [sectionCSRs, currentSection, searchTerm, isCShift, cShiftRoster]);
+  }, [sectionCSRs, currentSection, searchTerm, isCShift, cShiftRoster, isCallMon, callMonRoster]);
 
   const weeksList = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => i + 1);
@@ -737,17 +832,22 @@ export default function QualityDashboard({
       const csrTrainerAvgs: { name: string; avg: number }[] = [];
       const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
 
+      const targetColCount = isCallMon ? 3 : trainerColCount;
+      const trainerSectionSlug = isCallMon ? "mohammed_azad_call_mon" : "mohammed_azad";
+
       currentCsrs.forEach(csrName => {
         const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+        const docId = `${selectedYear}_${trainerQ}_${trainerSectionSlug}_${slug}`;
         const scores = evalData[docId]?.scores || {};
 
         let agentSum = 0;
         let agentCount = 0;
 
-        Object.keys(scores).forEach(k => {
-          if (k.startsWith(`m${trainerMonth}_eval_`)) {
-            const v = parseFloat(scores[k]);
+        for (let c = 1; c <= targetColCount; c++) {
+          const k = `m${trainerMonth}_eval_${c}`;
+          const val = scores[k];
+          if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
+            const v = parseFloat(val);
             if (!isNaN(v)) {
               agentSum += v;
               agentCount++;
@@ -756,7 +856,7 @@ export default function QualityDashboard({
               if (v >= 90) trainerPass++;
             }
           }
-        });
+        }
 
         if (agentCount > 0) {
           csrTrainerAvgs.push({ name: csrName, avg: agentSum / agentCount });
@@ -771,8 +871,8 @@ export default function QualityDashboard({
       return {
         annualAvg,
         totalCallsAudited: trainerCount,
-        totalTargetCalls: currentCsrs.length * trainerColCount,
-        auditProgressPercent: trainerCount > 0 ? Math.min(100, Math.round((trainerCount / Math.max(1, currentCsrs.length)) * 100)) : 0,
+        totalTargetCalls: currentCsrs.length * targetColCount,
+        auditProgressPercent: trainerCount > 0 ? Math.min(100, Math.round((trainerCount / Math.max(1, currentCsrs.length * targetColCount)) * 100)) : 0,
         weeksCount: trainerCount,
         totalWeeksInPeriod: currentCsrs.length,
         outboundAvg: "-",
@@ -964,7 +1064,7 @@ export default function QualityDashboard({
       topAgent,
       totalAgents: currentCsrs.length
     };
-  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedMonthFilter, evalData, isChatTeam, isTrainer, trainerMonth, trainerColCount, isCShift]);
+  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedMonthFilter, evalData, isChatTeam, isTrainer, trainerMonth, trainerColCount, isCShift, isCallMon]);
 
   const callBase = (selectedWeek - 1) * 6;
 
@@ -1261,8 +1361,8 @@ export default function QualityDashboard({
   // Open note modal for a specific cell
   const handleOpenNote = (csrName: string, key: string, callLabel: string) => {
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const sectionSlug = isCallMon ? "mohammed_azad_call_mon" : isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const effectiveQuarter = (isTrainer || isCallMon) ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
     const existingNote = (evalData[docId]?.notes || {})[key] || "";
     const scoreVal = (evalData[docId]?.scores || {})[key] || "";
@@ -1282,8 +1382,8 @@ export default function QualityDashboard({
     setSavingNote(true);
     const { csrName, key, noteText } = activeNoteModal;
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const sectionSlug = isCallMon ? "mohammed_azad_call_mon" : isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const effectiveQuarter = (isTrainer || isCallMon) ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
 
     try {
@@ -1340,8 +1440,8 @@ export default function QualityDashboard({
     setSavingNote(true);
     const { csrName, key } = activeNoteModal;
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+    const sectionSlug = isCallMon ? "mohammed_azad_call_mon" : isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const effectiveQuarter = (isTrainer || isCallMon) ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
 
     try {
@@ -1378,7 +1478,7 @@ export default function QualityDashboard({
   const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => {
     let targetRow = rowIdx;
     let targetCol = colIdx;
-    const maxCol = isTrainer ? trainerColCount - 1 : isCShift ? 2 : 6;
+    const maxCol = isCallMon ? 2 : isTrainer ? trainerColCount - 1 : isCShift ? 2 : 6;
 
     if (e.key === "ArrowDown" || e.key === "Enter") {
       e.preventDefault();
@@ -1431,14 +1531,17 @@ export default function QualityDashboard({
   const handleExportPDF = () => {
     if (isTrainer) {
       const trainerQ = `Q${Math.floor(trainerMonth / 3) + 1}`;
+      const effectiveColCount = isCallMon ? 3 : trainerColCount;
+      const trainerSectionSlug = isCallMon ? "mohammed_azad_call_mon" : "mohammed_azad";
+
       const rowsData = currentCsrs.map((csrName, idx) => {
         const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+        const docId = `${selectedYear}_${trainerQ}_${trainerSectionSlug}_${slug}`;
         const scores = evalData[docId]?.scores || {};
         const notes = evalData[docId]?.notes || {};
 
         let sum = 0; let count = 0;
-        const evalVals = Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => {
+        const evalVals = Array.from({ length: effectiveColCount }, (_, i) => i + 1).map(cNum => {
           const key = `m${trainerMonth}_eval_${cNum}`;
           const val = scores[key] ?? "-";
           const note = notes[key] ?? "";
@@ -1458,12 +1561,12 @@ export default function QualityDashboard({
         };
       });
 
-      const colAverages = Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => {
+      const colAverages = Array.from({ length: effectiveColCount }, (_, i) => i + 1).map(cNum => {
         const key = `m${trainerMonth}_eval_${cNum}`;
         const nums: number[] = [];
         currentCsrs.forEach(csrName => {
           const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-          const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+          const docId = `${selectedYear}_${trainerQ}_${trainerSectionSlug}_${slug}`;
           const val = (evalData[docId]?.scores || {})[key];
           if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
             const n = parseFloat(val);
@@ -1476,9 +1579,9 @@ export default function QualityDashboard({
       let allSum = 0; let allCnt = 0;
       currentCsrs.forEach(csrName => {
         const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-        const docId = `${selectedYear}_${trainerQ}_mohammed_azad_${slug}`;
+        const docId = `${selectedYear}_${trainerQ}_${trainerSectionSlug}_${slug}`;
         const scores = evalData[docId]?.scores || {};
-        for (let c = 1; c <= trainerColCount; c++) {
+        for (let c = 1; c <= effectiveColCount; c++) {
           const val = scores[`m${trainerMonth}_eval_${c}`];
           if (val && val.toUpperCase() !== "V" && !val.toUpperCase().includes("N/A")) {
             const n = parseFloat(val);
@@ -1491,11 +1594,19 @@ export default function QualityDashboard({
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
 
+      const reportTitle = isCallMon ? "Random Call Monitoring Report" : "Call Training Evaluation Report";
+      const reportSubtitle = isCallMon
+        ? "Random Call Listening & Monitoring Evaluation • Younis Kamal & Ankido Buya Teams"
+        : "Official Monthly Call Training Quality Evaluation Summary • Morning & Evening Teams";
+      const reportScope = isCallMon
+        ? `${currentCsrs.length} Call Agents (Younis & Ankido Teams)`
+        : `${currentCsrs.length} Call Agents (Morning & Evening)`;
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Trainer Evaluation Report - ${MONTH_NAMES[trainerMonth]} ${selectedYear}</title>
+          <title>${reportTitle} - ${MONTH_NAMES[trainerMonth]} ${selectedYear}</title>
           <style>
             @page { size: A4 landscape; margin: 12mm 15mm; }
             * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -1527,8 +1638,8 @@ export default function QualityDashboard({
                 <img src="${window.location.origin}/logo.webp" class="logo" alt="FIB Logo" />
               </td>
               <td class="title-area" style="vertical-align: middle;">
-                <h1>Call Training Evaluation Report</h1>
-                <p>Official Monthly Call Training Quality Evaluation Summary • Morning & Evening Teams</p>
+                <h1>${reportTitle}</h1>
+                <p>${reportSubtitle}</p>
               </td>
               <td style="text-align: right; vertical-align: middle;">
                 <div style="font-size: 10px; color: #64748b;">
@@ -1546,7 +1657,7 @@ export default function QualityDashboard({
             </div>
             <div class="meta-item">
               <div class="label">Scope</div>
-              <div class="val">${currentCsrs.length} Call Agents (Morning & Evening)</div>
+              <div class="val">${reportScope}</div>
             </div>
             <div class="meta-item">
               <div class="label">Trainer</div>
@@ -1563,7 +1674,7 @@ export default function QualityDashboard({
               <tr>
                 <th style="width: 32px;">#</th>
                 <th class="agent-col" style="min-width: 170px;">Agent Name</th>
-                ${Array.from({ length: trainerColCount }, (_, i) => i + 1).map(c => `<th style="width: 65px;">Eval ${c}</th>`).join('')}
+                ${Array.from({ length: effectiveColCount }, (_, i) => i + 1).map(c => `<th style="width: 65px;">Eval ${c}</th>`).join('')}
                 <th class="score-header" style="width: 95px;">${MONTH_NAMES[trainerMonth]} Avg</th>
               </tr>
             </thead>
@@ -2663,6 +2774,34 @@ export default function QualityDashboard({
           {/* TRAINER VIEW: All 12 Complete Month Tabs (Jan to Dec) & Add / Remove Column Buttons */}
           {isTrainer ? (
             <div className="flex items-center gap-2 shrink-0">
+              {/* Azad Shift Switcher: Training | Call Mon */}
+              <div className="flex items-center p-0.5 bg-teal-50/70 dark:bg-teal-950/40 rounded-xl border border-teal-200/80 dark:border-teal-800/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAzadShift("training")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    azadShift === "training"
+                      ? "bg-[#0d9488] text-white shadow-xs scale-[1.02]"
+                      : "text-teal-800 dark:text-teal-300 hover:bg-teal-100/60 dark:hover:bg-teal-900/40"
+                  }`}
+                >
+                  Training
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAzadShift("call_mon")}
+                  className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                    azadShift === "call_mon"
+                      ? "bg-[#0f766e] text-white shadow-xs scale-[1.02]"
+                      : "text-teal-800 dark:text-teal-300 hover:bg-teal-100/60 dark:hover:bg-teal-900/40"
+                  }`}
+                >
+                  Call Mon
+                </button>
+              </div>
+
+              <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 shrink-0" />
+
               {/* 12 Months Tabs */}
               <div className="flex items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-900/70 rounded-xl border border-gray-200/80 dark:border-gray-700/80 shrink-0">
                 {MONTH_NAMES.map((mName, mIdx) => {
@@ -2687,28 +2826,32 @@ export default function QualityDashboard({
                 })}
               </div>
 
-              {/* Add Evaluation Column Button */}
-              <button
-                type="button"
-                onClick={() => setTrainerColCount(prev => prev + 1)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0d9488] hover:bg-[#0b7f74] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
-                title="Add Evaluation Column"
-              >
-                <Plus size={13} className="stroke-[2.5]" />
-                <span>Add</span>
-              </button>
+              {/* Add Evaluation Column Button - only in Training mode */}
+              {!isCallMon && (
+                <button
+                  type="button"
+                  onClick={() => setTrainerColCount(prev => prev + 1)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0d9488] hover:bg-[#0b7f74] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
+                  title="Add Evaluation Column"
+                >
+                  <Plus size={13} className="stroke-[2.5]" />
+                  <span>Add</span>
+                </button>
+              )}
 
-              {/* Remove Evaluation Column Button */}
-              <button
-                type="button"
-                onClick={() => handleRemoveTrainerColumn(trainerColCount)}
-                disabled={trainerColCount <= 1}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/80 text-xs font-black transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                title="Remove Last Evaluation Column"
-              >
-                <Trash2 size={13} />
-                <span>Remove</span>
-              </button>
+              {/* Remove Evaluation Column Button - only in Training mode */}
+              {!isCallMon && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTrainerColumn(trainerColCount)}
+                  disabled={trainerColCount <= 1}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/80 text-xs font-black transition cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                  title="Remove Last Evaluation Column"
+                >
+                  <Trash2 size={13} />
+                  <span>Remove</span>
+                </button>
+              )}
             </div>
           ) : (
             /* REGULAR QA VIEW: 12 Week Tabs */
@@ -2739,11 +2882,13 @@ export default function QualityDashboard({
           {/* Week Section Subheader */}
           <div className="px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-2">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <div className={`px-2.5 py-1 rounded-xl text-white text-xs font-black ${isTrainer ? "bg-[#0d9488]" : isCShift ? "bg-[#00A991]" : "bg-[#1C6B53]"}`}>
-                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Evaluations` : `Week ${selectedWeek}`}
+              <div className={`px-2.5 py-1 rounded-xl text-white text-xs font-black ${isCallMon ? "bg-[#0f766e]" : isTrainer ? "bg-[#0d9488]" : isCShift ? "bg-[#00A991]" : "bg-[#1C6B53]"}`}>
+                {isCallMon ? `${MONTH_NAMES[trainerMonth]} Call Mon` : isTrainer ? `${MONTH_NAMES[trainerMonth]} Evaluations` : `Week ${selectedWeek}`}
               </div>
               <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
-                {isTrainer 
+                {isCallMon
+                  ? "Mohammed Azad — Call Mon (Younis + Ankido Teams)"
+                  : isTrainer 
                   ? "Mohammed Azad — Call Training Evaluations (Open Count • Morning & Evening)"
                   : isCShift
                   ? "Chats 1 to 3"
@@ -2755,13 +2900,13 @@ export default function QualityDashboard({
                     )
                 }
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/50 shadow-2xs">
-                <Users size={12} className="shrink-0 text-[#00A991]" />
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shadow-2xs ${isCallMon ? "bg-teal-50 dark:bg-teal-950/60 text-[#0f766e] dark:text-teal-300 border-teal-200/80 dark:border-teal-800/50" : "bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/50"}`}>
+                <Users size={12} className={`shrink-0 ${isCallMon ? "text-[#0f766e]" : "text-[#00A991]"}`} />
                 <span>{currentCsrs.length} Agents</span>
               </span>
             </div>
 
-            {/* Action Buttons: Add Agent (C Shift) & Export PDF */}
+            {/* Action Buttons: Add Agent (C Shift / Call Mon) & Export PDF */}
             <div className="flex items-center gap-2 shrink-0">
               {isCShift && (
                 <button
@@ -2769,6 +2914,18 @@ export default function QualityDashboard({
                   onClick={() => setShowAddCShiftModal(true)}
                   className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#00A991] hover:bg-[#008f7a] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
                   title="Add Evening Call Team Agent to C Shift"
+                >
+                  <Plus size={13} className="stroke-[2.5]" />
+                  <span>Add Agent</span>
+                </button>
+              )}
+
+              {isCallMon && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddCallMonModal(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0f766e] hover:bg-[#0d6360] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
+                  title="Add Agent to Call Monitoring Roster"
                 >
                   <Plus size={13} className="stroke-[2.5]" />
                   <span>Add Agent</span>
@@ -2798,7 +2955,24 @@ export default function QualityDashboard({
                   <th className="sticky left-0 bg-gray-100 dark:bg-gray-800 z-20 px-5 py-3.5 min-w-[210px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
                     Agent
                   </th>
-                  {isTrainer ? (
+                  {isCallMon ? (
+                    <>
+                      {[1, 2, 3].map(cNum => (
+                        <th key={cNum} className="px-2.5 py-3 text-center min-w-[100px]">
+                          <div className="flex items-center justify-center gap-1 text-teal-800 dark:text-teal-300 font-bold">
+                            <PhoneIncoming size={12} />
+                            <span>Eval {cNum}</span>
+                          </div>
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-center min-w-[120px] bg-[#0f766e] text-white font-black">
+                        {MONTH_NAMES[trainerMonth]} Avg
+                      </th>
+                      <th className="px-3 py-3 text-center w-12 text-gray-400 font-bold">
+                        Action
+                      </th>
+                    </>
+                  ) : isTrainer ? (
                     <>
                       {Array.from({ length: trainerColCount }, (_, i) => i + 1).map(cNum => (
                         <th key={cNum} className="px-2.5 py-3 text-center min-w-[100px] relative group/col">
@@ -2879,8 +3053,20 @@ export default function QualityDashboard({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-[#FDFCFB] dark:bg-gray-900">
                 {currentCsrs.length === 0 ? (
                   <tr>
-                    <td colSpan={isTrainer ? trainerColCount + 2 : isCShift ? 5 : 9} className="p-8 text-center text-sm text-gray-400">
-                      {isCShift ? (
+                    <td colSpan={isCallMon ? 5 : isTrainer ? trainerColCount + 2 : isCShift ? 5 : 9} className="p-8 text-center text-sm text-gray-400">
+                      {isCallMon ? (
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <p>No agents in Call Mon roster yet.</p>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddCallMonModal(true)}
+                            className="px-4 py-2 bg-[#0f766e] hover:bg-[#0d6360] text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Plus size={14} />
+                            <span>Add Agent (Younis + Ankido Teams)</span>
+                          </button>
+                        </div>
+                      ) : isCShift ? (
                         <div className="flex flex-col items-center justify-center gap-2">
                           <p>No agents in C Shift roster yet.</p>
                           <button
@@ -2900,14 +3086,123 @@ export default function QualityDashboard({
                 ) : (
                   currentCsrs.map((csrName, agentIdx) => {
                     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                    const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
+                    const sectionSlug = isCallMon ? "mohammed_azad_call_mon" : isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+                    const effectiveQuarter = (isTrainer || isCallMon) ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
                     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
                     const currentDoc = evalData[docId] || {};
                     const currentScores = currentDoc.scores || {};
                     const currentNotes = currentDoc.notes || {};
                     const weekAvg = computeWeekAvg(currentScores, selectedWeek, isChatTeam, selectedYear, selectedQuarter, isCShift);
                     const agentPhoto = memberPhotos[csrName.trim().toLowerCase()] || "";
+
+                    if (isCallMon) {
+                      // Call Monitoring: 3 Eval cols + Avg + Remove button
+                      let sum = 0; let count = 0;
+                      for (let c = 1; c <= 3; c++) {
+                        const key = `m${trainerMonth}_eval_${c}`;
+                        const raw = currentScores[key];
+                        if (raw && raw.toUpperCase() !== "V" && !raw.toUpperCase().includes("N/A")) {
+                          const n = parseFloat(raw);
+                          if (!isNaN(n)) { sum += n; count++; }
+                        }
+                      }
+                      const agentCallMonAvg = count > 0 ? (sum / count).toFixed(1) : "-";
+
+                      return (
+                        <tr key={csrName} className="hover:bg-teal-50/30 dark:hover:bg-gray-800/40 transition">
+                          <td className="sticky left-0 bg-white dark:bg-gray-900 z-10 px-5 py-3 font-bold text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] border-r border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2.5">
+                              {agentPhoto ? (
+                                <img
+                                  src={agentPhoto}
+                                  alt={csrName}
+                                  className="w-7 h-7 rounded-full object-cover shadow-xs border border-teal-500/20 ring-1 ring-teal-500/20 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/60 text-[#0f766e] dark:text-teal-300 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                  {csrName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="truncate max-w-[150px]" title={csrName}>{csrName}</span>
+                            </div>
+                          </td>
+
+                          {[1, 2, 3].map((cNum, cIdx) => {
+                            const key = `m${trainerMonth}_eval_${cNum}`;
+                            const rawVal = currentScores[key] ?? "";
+                            const val = String(rawVal);
+                            const note = currentNotes[key] ?? "";
+                            const hasNote = Boolean(note.trim());
+                            const isV = val.toUpperCase() === "V";
+                            const isNA = val.toUpperCase().includes("N/A");
+                            const cellLabel = `${MONTH_NAMES[trainerMonth]} Eval ${cNum}`;
+
+                            return (
+                              <td key={cNum} className="p-2 text-center">
+                                <div className="relative inline-block group">
+                                  {hasNote && (
+                                    <div
+                                      onClick={() => handleOpenNote(csrName, key, cellLabel)}
+                                      className="absolute top-0 left-0 w-0 h-0 border-t-[9px] border-r-[9px] border-r-transparent border-t-red-500 rounded-tl-xl cursor-pointer z-10"
+                                      title={`Note: ${note}`}
+                                    />
+                                  )}
+                                  <input
+                                    id={`qa_cell_${agentIdx}_${cIdx}`}
+                                    type="text"
+                                    value={val}
+                                    onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
+                                    onKeyDown={(e) => handleCellKeyDown(e, agentIdx, cIdx)}
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="-"
+                                    className={`w-18 sm:w-20 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
+                                      isV
+                                        ? "bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                        : isNA
+                                        ? "bg-gray-100 dark:bg-gray-800/80 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700"
+                                        : "bg-white dark:bg-gray-800/90 border border-gray-200/90 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:border-teal-400 dark:hover:border-teal-500/70 focus:border-[#0f766e] dark:focus:border-teal-400 focus:ring-2 focus:ring-[#0f766e]/20 dark:focus:ring-teal-400/20"
+                                    }`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenNote(csrName, key, cellLabel)}
+                                    className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                                      hasNote
+                                        ? "bg-red-500 text-white ring-2 ring-white dark:ring-gray-900 hover:bg-red-600 scale-100 z-10"
+                                        : "bg-gray-100 hover:bg-[#0f766e] dark:bg-gray-700 text-gray-400 hover:text-white dark:text-gray-400 ring-1 ring-gray-200/90 dark:ring-gray-600/70 hover:scale-110 opacity-70 group-hover:opacity-100 z-10"
+                                    }`}
+                                    title={hasNote ? `Note: ${note}` : "Add Note"}
+                                  >
+                                    <FileText size={8} />
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          })}
+
+                          <td className="p-2 text-center font-black text-sm bg-teal-50/50 dark:bg-teal-950/30">
+                            <span className={`inline-block px-3 py-1.5 rounded-xl text-xs font-black shadow-2xs ${
+                              agentCallMonAvg !== "-"
+                                ? "bg-white dark:bg-gray-800 text-[#0f766e] dark:text-teal-300 border border-teal-500/20"
+                                : "text-gray-300 dark:text-gray-600 font-normal"
+                            }`}>
+                              {agentCallMonAvg !== "-" ? `${agentCallMonAvg}%` : "-"}
+                            </span>
+                          </td>
+
+                          <td className="p-2 text-center w-12">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCallMonAgent(csrName)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition cursor-pointer"
+                              title={`Remove ${csrName} from Call Mon roster`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }
 
                     if (isTrainer) {
                       // Calculate trainer agent average for current trainerMonth
@@ -3719,6 +4014,114 @@ export default function QualityDashboard({
               <button
                 type="button"
                 onClick={() => setShowAddCShiftModal(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Call Mon Agent Modal (Younis + Ankido Teams) */}
+      {showAddCallMonModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs" onClick={() => setShowAddCallMonModal(false)} />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-5 w-full max-w-md border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-[#0f766e] flex items-center justify-center">
+                  <UserPlus size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-gray-900 dark:text-white">
+                    Add Call Mon Agent
+                  </h4>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                    Younis Kamal Team + Ankido Buya Team
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCallMonModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={callMonSearchTerm}
+                onChange={(e) => setCallMonSearchTerm(e.target.value)}
+                placeholder="Search agents..."
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-teal-500"
+              />
+            </div>
+
+            {/* Agent List */}
+            <div className="overflow-y-auto flex-1 divide-y divide-gray-100 dark:divide-gray-800 pr-1 max-h-96">
+              {allCallTeamMembers
+                .filter(m => !callMonSearchTerm.trim() || m.name.toLowerCase().includes(callMonSearchTerm.toLowerCase()))
+                .map(({ name: agentName, team }) => {
+                  const isAdded = callMonRoster.includes(agentName);
+                  const photo = memberPhotos[agentName.trim().toLowerCase()] || "";
+                  const isYounis = team.toLowerCase().includes("younis");
+                  return (
+                    <div key={agentName} className="flex items-center justify-between py-2.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl transition">
+                      <div className="flex items-center gap-2.5">
+                        {photo ? (
+                          <img src={photo} alt={agentName} className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-950/60 text-[#0f766e] flex items-center justify-center font-bold text-xs">
+                            {agentName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-xs font-bold text-gray-900 dark:text-white">{agentName}</div>
+                          <div className="text-[10px] text-gray-400">{isYounis ? "Younis Kamal Team" : "Ankido Buya Team"}</div>
+                        </div>
+                      </div>
+
+                      {isAdded ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCallMonAgent(agentName)}
+                          className="px-3 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 rounded-lg transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Check size={12} className="text-emerald-600" />
+                          <span>Remove</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleAddCallMonAgent(agentName)}
+                          className="px-3 py-1 text-xs font-black text-white bg-[#0f766e] hover:bg-[#0d6360] rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1"
+                        >
+                          <Plus size={12} />
+                          <span>Add</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {allCallTeamMembers.length === 0 && (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  No agents found from Younis Kamal or Ankido Buya Teams.
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 mt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs text-gray-500">
+              <span>{callMonRoster.length} agent(s) added</span>
+              <button
+                type="button"
+                onClick={() => setShowAddCallMonModal(false)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold transition cursor-pointer"
               >
                 Done
