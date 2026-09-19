@@ -360,7 +360,10 @@ export default function QualityDashboard({
 
   const eveningCallTeamMembers = useMemo(() => {
     return rosterMembers
-      .filter(m => m.team === "Ankido Buya Team")
+      .filter(m => {
+        const t = (m.team || "").trim();
+        return t === "Younis Kamal Team" || t.toLowerCase().includes("younis");
+      })
       .map(m => (m.agent_name || m.name || "").trim())
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
@@ -1570,7 +1573,7 @@ export default function QualityDashboard({
                 </td>
                 <td class="title-area" style="vertical-align: middle;">
                   <h1>Chat Quality Assurance Report (C Shift)</h1>
-                  <p>Mohammed Dlshad — Evening Call Team (3 Chats Quality Evaluation)</p>
+                  <p>Mohammed Dlshad — Evening Call Team (Younis Kamal Team • 3 Chats Quality Evaluation)</p>
                 </td>
                 <td style="text-align: right; vertical-align: middle;">
                   <div class="meta-badge-box">
@@ -1592,7 +1595,7 @@ export default function QualityDashboard({
               </div>
               <div class="meta-item">
                 <div class="label">Target Team</div>
-                <div class="val">Evening Call Team</div>
+                <div class="val">Evening Call Team (Younis Kamal)</div>
               </div>
               <div class="meta-item highlight">
                 <div class="label">Team Week Avg</div>
@@ -2621,12 +2624,6 @@ export default function QualityDashboard({
                 })}
               </div>
             )}
-
-            <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
-
-            <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap px-1 shrink-0">
-              {currentCsrs.length} {isTrainer ? "Call Agents (Morning & Evening)" : isCShift ? "C Shift Agents (Evening Call)" : "Agents"}
-            </span>
           </div>
 
         </div>
@@ -2635,15 +2632,15 @@ export default function QualityDashboard({
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
           {/* Week Section Subheader */}
           <div className="px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-2">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <div className={`px-2.5 py-1 rounded-xl text-white text-xs font-black ${isTrainer ? "bg-[#0d9488]" : isCShift ? "bg-[#00A991]" : "bg-[#1C6B53]"}`}>
-                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Evaluations` : isCShift ? `C Shift • Week ${selectedWeek}` : `Week ${selectedWeek}`}
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Evaluations` : `Week ${selectedWeek}`}
               </div>
               <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
                 {isTrainer 
                   ? "Mohammed Azad — Call Training Evaluations (Open Count • Morning & Evening)"
                   : isCShift
-                  ? "Mohammed Dlshad — C Shift (Evening Call Team • 3 Chats)"
+                  ? "Chats 1 to 3"
                   : (isChatTeam 
                       ? (hasChat7 
                           ? `Chats 1 to 7` 
@@ -2651,6 +2648,10 @@ export default function QualityDashboard({
                       : `Calls ${(selectedWeek - 1) * 6 + 1} to ${(selectedWeek - 1) * 6 + 6} + Outbound`
                     )
                 }
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-50 dark:bg-emerald-950/60 text-[#1C6B53] dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/50 shadow-2xs">
+                <Users size={12} className="shrink-0 text-[#00A991]" />
+                <span>{currentCsrs.length} Agents</span>
               </span>
             </div>
 
@@ -3514,7 +3515,7 @@ export default function QualityDashboard({
                     Add Evening Call Agent
                   </h4>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                    Available members from Evening Call Team (Ankido Buya Team)
+                    Available members from Evening Call Team (Younis Kamal Team)
                   </p>
                 </div>
               </div>
@@ -3558,7 +3559,7 @@ export default function QualityDashboard({
                         )}
                         <div>
                           <div className="text-xs font-bold text-gray-900 dark:text-white">{agentName}</div>
-                          <div className="text-[10px] text-gray-400">Evening Call Team</div>
+                          <div className="text-[10px] text-gray-400">Evening Call Team (Younis Kamal)</div>
                         </div>
                       </div>
 
@@ -3587,7 +3588,7 @@ export default function QualityDashboard({
 
               {eveningCallTeamMembers.length === 0 && (
                 <div className="py-8 text-center text-xs text-gray-400">
-                  No Evening Call team members found in the system.
+                  No Evening Call team members (Younis Kamal Team) found in the system.
                 </div>
               )}
             </div>
