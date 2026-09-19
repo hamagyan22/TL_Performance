@@ -7,7 +7,7 @@ import { updatePassword } from "firebase/auth";
 import { 
   Award, ArrowLeft, Search, Users, Check, Save, Download, 
   Sun, Moon, ChevronDown, CheckCheck, RefreshCw, Calendar, Plus,
-  LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Trash2, FileText, MessageSquare, ShieldCheck
+  LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Trash2, FileText, MessageSquare, ShieldCheck, UserPlus
 } from "lucide-react";
 
 interface QualityDashboardProps {
@@ -130,13 +130,18 @@ function computeWeekAvg(
   weekNum: number,
   isChat: boolean = false,
   year: string = "2026",
-  quarter: string = "Q1"
+  quarter: string = "Q1",
+  isCShift: boolean = false
 ): string {
   if (!scores) return "-";
   
   let keys: string[] = [];
 
-  if (isChat) {
+  if (isCShift) {
+    for (let i = 1; i <= 3; i++) {
+      keys.push(`w${weekNum}_chat_${i}`);
+    }
+  } else if (isChat) {
     const callBase = (weekNum - 1) * 6;
     for (let i = 1; i <= 6; i++) {
       const possibleKeys = [
@@ -318,6 +323,80 @@ export default function QualityDashboard({
       currentSection.evaluator.toLowerCase().includes("dlshad");
   }, [currentSection]);
 
+  // Mohammed Dlshad Shift State: "main" (Chat Shift) or "c_shift" (Evening Call Team, 3 Chats)
+  const [dlshadShift, setDlshadShift] = useState<"main" | "c_shift">("main");
+  const [cShiftRoster, setCShiftRoster] = useState<string[]>([]);
+  const [showAddCShiftModal, setShowAddCShiftModal] = useState(false);
+  const [cShiftSearchTerm, setCShiftSearchTerm] = useState("");
+
+  const isCShift = useMemo(() => {
+    return isChatTeam && dlshadShift === "c_shift";
+  }, [isChatTeam, dlshadShift]);
+
+  // Load and listen to C Shift roster from Firestore and localStorage
+  useEffect(() => {
+    const savedLocal = localStorage.getItem("c_shift_roster");
+    if (savedLocal) {
+      try {
+        const parsed = JSON.parse(savedLocal);
+        if (Array.isArray(parsed)) setCShiftRoster(parsed);
+      } catch (e) {}
+    }
+
+    const unsubCShift = onSnapshot(doc(db, "quality_evaluations", "config_c_shift_roster"), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data?.agents)) {
+          setCShiftRoster(data.agents);
+          localStorage.setItem("c_shift_roster", JSON.stringify(data.agents));
+        }
+      }
+    }, (err) => {
+      console.error("Error listening to c_shift_roster:", err);
+    });
+
+    return () => unsubCShift();
+  }, []);
+
+  const eveningCallTeamMembers = useMemo(() => {
+    return rosterMembers
+      .filter(m => m.team === "Ankido Buya Team")
+      .map(m => (m.agent_name || m.name || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  }, [rosterMembers]);
+
+  const handleAddCShiftAgent = async (agentName: string) => {
+    if (!agentName || cShiftRoster.includes(agentName)) return;
+    const nextList = [...cShiftRoster, agentName].sort((a, b) => a.localeCompare(b));
+    setCShiftRoster(nextList);
+    localStorage.setItem("c_shift_roster", JSON.stringify(nextList));
+    try {
+      await setDoc(doc(db, "quality_evaluations", "config_c_shift_roster"), {
+        year: selectedYear,
+        agents: nextList,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Error saving C shift roster:", e);
+    }
+  };
+
+  const handleRemoveCShiftAgent = async (agentName: string) => {
+    const nextList = cShiftRoster.filter(a => a !== agentName);
+    setCShiftRoster(nextList);
+    localStorage.setItem("c_shift_roster", JSON.stringify(nextList));
+    try {
+      await setDoc(doc(db, "quality_evaluations", "config_c_shift_roster"), {
+        year: selectedYear,
+        agents: nextList,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Error saving C shift roster:", e);
+    }
+  };
+
   const hasChat7 = useMemo(() => {
     return getHasChat7(isChatTeam, selectedYear, selectedQuarter, selectedWeek);
   }, [isChatTeam, selectedYear, selectedQuarter, selectedWeek]);
@@ -399,7 +478,7 @@ export default function QualityDashboard({
     rawVal: string
   ) => {
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = section.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : section.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const isTrainerSection = section.id === "mohammed_azad" || section.evaluator.toLowerCase().includes("azad");
     const effectiveQuarter = isTrainerSection ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
@@ -458,7 +537,7 @@ export default function QualityDashboard({
         setSaveStatus("idle");
       }
     }, 450);
-  }, [selectedYear, selectedQuarter, trainerMonth, evalData]);
+  }, [selectedYear, selectedQuarter, trainerMonth, evalData, isCShift]);
 
   // Section CSRs strictly pulled and deduplicated from live team_members
   const sectionCSRs = useMemo(() => {
@@ -486,10 +565,15 @@ export default function QualityDashboard({
   }, [rosterMembers]);
 
   const currentCsrs = useMemo(() => {
-    const list = sectionCSRs[currentSection.id] || [];
+    let list: string[] = [];
+    if (isCShift) {
+      list = cShiftRoster;
+    } else {
+      list = sectionCSRs[currentSection.id] || [];
+    }
     if (!searchTerm.trim()) return list;
     return list.filter(name => name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [sectionCSRs, currentSection, searchTerm]);
+  }, [sectionCSRs, currentSection, searchTerm, isCShift, cShiftRoster]);
 
   const weeksList = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => i + 1);
@@ -596,12 +680,13 @@ export default function QualityDashboard({
         (cardPeriodMode === "h1" || cardPeriodMode === "h2") ? 24 : 12;
     }
 
-    // 7 calls/chats per week for every agent
-    const totalTargetCalls = currentCsrs.length * 7 * totalWeeksInPeriod;
+    // 3 chats for C Shift, 7 calls/chats per week for other teams
+    const callsPerWeek = isCShift ? 3 : 7;
+    const totalTargetCalls = currentCsrs.length * callsPerWeek * totalWeeksInPeriod;
 
     currentCsrs.forEach(csrName => {
       const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-      const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
 
       targetQuarters.forEach(qId => {
         const docId = `${selectedYear}_${qId}_${sectionSlug}_${slug}`;
@@ -614,7 +699,25 @@ export default function QualityDashboard({
           const weekBase = (w - 1) * 6;
           const weekHasChat7 = getHasChat7(true, selectedYear, qId, w);
 
-          if (isChatTeam) {
+          if (isCShift) {
+            for (let c = 1; c <= 3; c++) {
+              const val = scores[`w${w}_chat_${c}`];
+              const valStr = String(val || "").trim().toUpperCase();
+              if (valStr && valStr !== "V" && valStr !== "N/A") {
+                const num = parseFloat(valStr);
+                if (!isNaN(num)) {
+                  totalCallsAudited++;
+                  sumScores += num;
+                  if (num >= 90) passCount++;
+                  if (!csrTotals[csrName]) csrTotals[csrName] = { sum: 0, count: 0 };
+                  csrTotals[csrName].sum += num;
+                  csrTotals[csrName].count += 1;
+                  inboundCount++;
+                  weeksWithData.add(`${qId}_w${w}`);
+                }
+              }
+            }
+          } else if (isChatTeam) {
             for (let c = 1; c <= 6; c++) {
               const val = scores[`w${w}_chat_${c}`] ?? scores[`w${w}_chat_${weekBase + c}`] ?? scores[`w${w}_call_${weekBase + c}`] ?? scores[`w${w}_call_${c}`];
               const valStr = String(val || "").trim().toUpperCase();
@@ -737,7 +840,7 @@ export default function QualityDashboard({
       topAgent,
       totalAgents: currentCsrs.length
     };
-  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedMonthFilter, evalData, isChatTeam, isTrainer, trainerMonth, trainerColCount]);
+  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedMonthFilter, evalData, isChatTeam, isTrainer, trainerMonth, trainerColCount, isCShift]);
 
   const callBase = (selectedWeek - 1) * 6;
 
@@ -745,7 +848,7 @@ export default function QualityDashboard({
   const tableMonthAgentAvgs = useMemo(() => {
     if (selectedMonthFilter === null) return {};
     const { quarter, weekStart, weekEnd } = getMonthWeekRange(selectedMonthFilter);
-    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const result: Record<string, string> = {};
 
     currentCsrs.forEach(csrName => {
@@ -758,7 +861,13 @@ export default function QualityDashboard({
         const weekBase = (w - 1) * 6;
         const weekHasChat7 = getHasChat7(isChatTeam, selectedYear, quarter, w);
 
-        if (isChatTeam) {
+        if (isCShift) {
+          for (let c = 1; c <= 3; c++) {
+            const val = scores[`w${w}_chat_${c}`];
+            const v = parseFloat(String(val || ""));
+            if (!isNaN(v)) { sum += v; cnt++; }
+          }
+        } else if (isChatTeam) {
           for (let c = 1; c <= 6; c++) {
             const val = scores[`w${w}_chat_${c}`] ?? scores[`w${w}_chat_${weekBase + c}`] ?? scores[`w${w}_call_${c}`];
             const v = parseFloat(String(val || ""));
@@ -786,7 +895,7 @@ export default function QualityDashboard({
     });
 
     return result;
-  }, [selectedMonthFilter, currentCsrs, currentSection, selectedYear, evalData, isChatTeam]);
+  }, [selectedMonthFilter, currentCsrs, currentSection, selectedYear, evalData, isChatTeam, isCShift]);
 
   // Handler for selecting month from toolbar dropdown (affects both top card and table)
   const handleMonthSelect = (monthIdx: number | null) => {
@@ -1028,7 +1137,7 @@ export default function QualityDashboard({
   // Open note modal for a specific cell
   const handleOpenNote = (csrName: string, key: string, callLabel: string) => {
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
     const existingNote = (evalData[docId]?.notes || {})[key] || "";
@@ -1049,7 +1158,7 @@ export default function QualityDashboard({
     setSavingNote(true);
     const { csrName, key, noteText } = activeNoteModal;
     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
 
@@ -1145,7 +1254,7 @@ export default function QualityDashboard({
   const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => {
     let targetRow = rowIdx;
     let targetCol = colIdx;
-    const maxCol = 6;
+    const maxCol = isTrainer ? trainerColCount - 1 : isCShift ? 2 : 6;
 
     if (e.key === "ArrowDown" || e.key === "Enter") {
       e.preventDefault();
@@ -1359,6 +1468,173 @@ export default function QualityDashboard({
 
       printWindow.document.open();
       printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      return;
+    }
+
+    if (isCShift) {
+      const rowsData = currentCsrs.map((csrName, idx) => {
+        const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const docId = `${selectedYear}_${selectedQuarter}_mohammed_dlshad_c_shift_${slug}`;
+        const scores = evalData[docId]?.scores || {};
+        const notes = evalData[docId]?.notes || {};
+        const weekAvg = computeWeekAvg(scores, selectedWeek, isChatTeam, selectedYear, selectedQuarter, true);
+
+        const chatVals = [1, 2, 3].map(cNum => {
+          const key = `w${selectedWeek}_chat_${cNum}`;
+          const val = scores[key] ?? "-";
+          const note = notes[key] ?? "";
+          return { val, note };
+        });
+
+        return {
+          idx: idx + 1,
+          csrName,
+          chatVals,
+          weekAvg: weekAvg !== "-" && weekAvg !== "V" ? `${weekAvg}%` : weekAvg
+        };
+      });
+
+      const colAverages = [1, 2, 3].map(cNum => {
+        const key = `w${selectedWeek}_chat_${cNum}`;
+        const nums: number[] = [];
+        currentCsrs.forEach(csrName => {
+          const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+          const docId = `${selectedYear}_${selectedQuarter}_mohammed_dlshad_c_shift_${slug}`;
+          const val = (evalData[docId]?.scores || {})[key];
+          if (val && val.toUpperCase() !== "V" && val.toUpperCase() !== "N/A") {
+            const n = parseFloat(val);
+            if (!isNaN(n)) nums.push(n);
+          }
+        });
+        return nums.length > 0 ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) + "%" : "-";
+      });
+
+      const weekAverages: number[] = [];
+      currentCsrs.forEach(csrName => {
+        const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+        const docId = `${selectedYear}_${selectedQuarter}_mohammed_dlshad_c_shift_${slug}`;
+        const scores = evalData[docId]?.scores || {};
+        const avgStr = computeWeekAvg(scores, selectedWeek, isChatTeam, selectedYear, selectedQuarter, true);
+        if (avgStr !== "-" && avgStr !== "V") {
+          const n = parseFloat(avgStr);
+          if (!isNaN(n)) weekAverages.push(n);
+        }
+      });
+      const totalWeekTeamAvg = weekAverages.length > 0 ? (weekAverages.reduce((a, b) => a + b, 0) / weekAverages.length).toFixed(1) + "%" : "-";
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>FIB_Quality_CShift_${selectedYear}_${selectedQuarter}_Week${selectedWeek}</title>
+            <style>
+              @page { size: A4 landscape; margin: 10mm 12mm; }
+              * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif; }
+              body { color: #0f172a; background: #ffffff; margin: 0; padding: 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .header-table { width: 100%; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 12px; }
+              .logo { height: 42px; width: auto; object-fit: contain; }
+              .title-area h1 { font-size: 22px; font-weight: 900; color: #00A991; margin: 0 0 3px 0; letter-spacing: -0.3px; }
+              .title-area p { font-size: 11px; color: #64748b; margin: 0; font-weight: 500; }
+              .meta-badge-box { display: inline-block; text-align: right; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; }
+              .meta-badge-box .meta-line { font-size: 10px; color: #64748b; font-weight: 500; }
+              .meta-badge-box .meta-line strong { color: #0f172a; font-weight: 700; }
+              .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+              .meta-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 14px; }
+              .meta-item.highlight { background: #f0fdfa; border: 1.5px solid #99f6e4; }
+              .meta-item .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: #64748b; }
+              .meta-item.highlight .label { color: #0f766e; }
+              .meta-item .val { font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+              .meta-item.highlight .val { color: #00A991; font-size: 15px; font-weight: 900; }
+              table.data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+              table.data-table th { background-color: #00A991; color: #ffffff; font-weight: 800; text-align: center; padding: 8px 5px; font-size: 11px; letter-spacing: 0.2px; border-bottom: 1px solid #0b7f74; }
+              table.data-table th.agent-col { text-align: left; padding-left: 12px; }
+              table.data-table th.score-header { background-color: #0b7f74 !important; color: #ffffff; font-weight: 900; }
+              table.data-table td { padding: 6px 4px; text-align: center; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; font-weight: 600; }
+              table.data-table td.agent-cell { text-align: left; padding-left: 12px; font-weight: 700; color: #0f172a; }
+              table.data-table tr:nth-child(even) td { background-color: #fbfcfd; }
+              table.data-table tr:nth-child(odd) td { background-color: #ffffff; }
+              .badge-score { background-color: #f0fdfa; color: #0f766e; font-weight: 900; padding: 2.5px 7px; border-radius: 6px; border: 1px solid #99f6e4; font-size: 11px; display: inline-block; }
+              tr.total-row td { background-color: #f0fdfa !important; color: #0f766e !important; font-weight: 900; font-size: 11px; border-top: 2px solid #00A991; border-bottom: 2px solid #00A991; padding: 8px 4px; }
+              tr.total-row td.total-avg-cell { background-color: #00A991 !important; color: #ffffff !important; font-size: 12px; font-weight: 900; }
+            </style>
+          </head>
+          <body>
+            <table class="header-table">
+              <tr>
+                <td style="width: 130px; vertical-align: middle;">
+                  <img src="${window.location.origin}/logo.webp" class="logo" alt="FIB Logo" />
+                </td>
+                <td class="title-area" style="vertical-align: middle;">
+                  <h1>Chat Quality Assurance Report (C Shift)</h1>
+                  <p>Mohammed Dlshad — Evening Call Team (3 Chats Quality Evaluation)</p>
+                </td>
+                <td style="text-align: right; vertical-align: middle;">
+                  <div class="meta-badge-box">
+                    <div class="meta-line">Export Date: <strong>${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></div>
+                    <div class="meta-line" style="margin-top: 2px;">Evaluator: <strong style="color: #00A991;">Mohammed Dlshad (C Shift)</strong></div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <div class="meta-grid">
+              <div class="meta-item">
+                <div class="label">Year & Quarter</div>
+                <div class="val">${selectedYear} • ${selectedQuarter}</div>
+              </div>
+              <div class="meta-item">
+                <div class="label">Week Number</div>
+                <div class="val">Week ${selectedWeek} (Chats 1–3)</div>
+              </div>
+              <div class="meta-item">
+                <div class="label">Target Team</div>
+                <div class="val">Evening Call Team</div>
+              </div>
+              <div class="meta-item highlight">
+                <div class="label">Team Week Avg</div>
+                <div class="val">${totalWeekTeamAvg}</div>
+              </div>
+            </div>
+
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 32px;">#</th>
+                  <th class="agent-col" style="min-width: 170px;">Agent Name</th>
+                  <th style="width: 80px;">Chat 1</th>
+                  <th style="width: 80px;">Chat 2</th>
+                  <th style="width: 80px;">Chat 3</th>
+                  <th class="score-header" style="width: 100px;">Week ${selectedWeek} Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsData.map(r => `
+                  <tr>
+                    <td style="color: #94a3b8; font-size: 10px; font-weight: 600;">${r.idx}</td>
+                    <td class="agent-cell">${r.csrName}</td>
+                    ${r.chatVals.map(c => `<td><span style="font-weight: 800;">${c.val}</span></td>`).join('')}
+                    <td><span class="badge-score">${r.weekAvg}</span></td>
+                  </tr>
+                `).join('')}
+                <tr class="total-row">
+                  <td colspan="2" style="text-align: left; padding-left: 12px; text-transform: uppercase;">Team Average</td>
+                  ${colAverages.map(avg => `<td>${avg}</td>`).join('')}
+                  <td class="total-avg-cell">${totalWeekTeamAvg}</td>
+                </tr>
+              </tbody>
+            </table>
+            <script>
+              window.onload = function() { window.print(); }
+            </script>
+          </body>
+        </html>
+      `;
+      printWindow.document.open();
+      printWindow.document.write(html);
       printWindow.document.close();
       return;
     }
@@ -1832,7 +2108,13 @@ export default function QualityDashboard({
                 </h1>
               </div>
               <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                {isChatTeam ? "Weekly Chat Evaluations & Performance Overview" : "Weekly Call Evaluations & Performance Overview"}
+                {isTrainer
+                  ? "Mohammed Azad — Call Training Evaluations (Open Count)"
+                  : isCShift
+                  ? "Mohammed Dlshad — C Shift Weekly Chat Evaluations (3 Chats)"
+                  : isChatTeam
+                  ? "Weekly Chat Evaluations & Performance Overview"
+                  : "Weekly Call Evaluations & Performance Overview"}
               </p>
             </div>
           </div>
@@ -2131,7 +2413,7 @@ export default function QualityDashboard({
                   title="Filter by Month"
                 >
                   <Calendar size={13} className={selectedMonthFilter !== null ? "text-white" : "text-[#1C6B53] dark:text-emerald-400"} />
-                  <span>{selectedMonthFilter !== null ? MONTH_NAMES[selectedMonthFilter] : "All Months"}</span>
+                  <span>{selectedMonthFilter !== null ? MONTH_NAMES[selectedMonthFilter] : (isChatTeam ? "Months" : "All Months")}</span>
                   <ChevronDown size={12} className={`transition-transform duration-200 ${isMonthMenuOpen ? "rotate-180" : ""}`} />
                 </button>
 
@@ -2151,7 +2433,7 @@ export default function QualityDashboard({
                             : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                         }`}
                       >
-                        <span>All Months</span>
+                        <span>{isChatTeam ? "Months" : "All Months"}</span>
                         {selectedMonthFilter === null && <Check size={13} />}
                       </button>
                       
@@ -2191,6 +2473,50 @@ export default function QualityDashboard({
 
           {/* Scrollable Center & Right Controls */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+            {/* Mohammed Dlshad: Shift Switcher (Main Shift vs C shift) */}
+            {isChatTeam && (
+              <>
+                <div className="flex items-center p-0.5 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDlshadShift("main")}
+                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                      dlshadShift === "main"
+                        ? "bg-[#1C6B53] text-white shadow-xs scale-[1.02]"
+                        : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40"
+                    }`}
+                  >
+                    Main Shift
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDlshadShift("c_shift")}
+                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                      dlshadShift === "c_shift"
+                        ? "bg-[#00A991] text-white shadow-xs scale-[1.02]"
+                        : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40"
+                    }`}
+                  >
+                    C shift
+                  </button>
+                </div>
+
+                {isCShift && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCShiftModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00A991] hover:bg-[#008f7a] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
+                    title="Add Evening Call Team Agent to C Shift"
+                  >
+                    <Plus size={13} className="stroke-[2.5]" />
+                    <span>Add Agent</span>
+                  </button>
+                )}
+
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+              </>
+            )}
+
             {/* Quarter Tabs (Q1, Q2, Q3, Q4) - ONLY FOR QA EVALUATORS, REMOVED FOR TRAINER */}
             {!isTrainer && (
               <>
@@ -2299,7 +2625,7 @@ export default function QualityDashboard({
             <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
             <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap px-1 shrink-0">
-              {currentCsrs.length} {isTrainer ? "Call Agents (Morning & Evening)" : "Agents"}
+              {currentCsrs.length} {isTrainer ? "Call Agents (Morning & Evening)" : isCShift ? "C Shift Agents (Evening Call)" : "Agents"}
             </span>
           </div>
 
@@ -2310,12 +2636,14 @@ export default function QualityDashboard({
           {/* Week Section Subheader */}
           <div className="px-5 py-3.5 bg-gray-50/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
-              <div className={`px-2.5 py-1 rounded-xl text-white text-xs font-black ${isTrainer ? "bg-[#0d9488]" : "bg-[#1C6B53]"}`}>
-                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Evaluations` : `Week ${selectedWeek}`}
+              <div className={`px-2.5 py-1 rounded-xl text-white text-xs font-black ${isTrainer ? "bg-[#0d9488]" : isCShift ? "bg-[#00A991]" : "bg-[#1C6B53]"}`}>
+                {isTrainer ? `${MONTH_NAMES[trainerMonth]} Evaluations` : isCShift ? `C Shift • Week ${selectedWeek}` : `Week ${selectedWeek}`}
               </div>
               <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
                 {isTrainer 
                   ? "Mohammed Azad — Call Training Evaluations (Open Count • Morning & Evening)"
+                  : isCShift
+                  ? "Mohammed Dlshad — C Shift (Evening Call Team • 3 Chats)"
                   : (isChatTeam 
                       ? (hasChat7 
                           ? `Chats 1 to 7` 
@@ -2375,6 +2703,23 @@ export default function QualityDashboard({
                         {MONTH_NAMES[trainerMonth]} Avg
                       </th>
                     </>
+                  ) : isCShift ? (
+                    <>
+                      {[1, 2, 3].map(cNum => (
+                        <th key={cNum} className="px-2.5 py-3 text-center min-w-[100px]">
+                          <div className="flex items-center justify-center gap-1 text-teal-800 dark:text-teal-300 font-bold">
+                            <MessageSquare size={12} />
+                            <span>Chat {cNum}</span>
+                          </div>
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-center min-w-[120px] bg-[#00A991] text-white font-black">
+                        {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Avg` : `Week ${selectedWeek} Score`}
+                      </th>
+                      <th className="px-3 py-3 text-center w-12 text-gray-400 font-bold">
+                        Action
+                      </th>
+                    </>
                   ) : (
                     <>
                       {[1, 2, 3, 4, 5, 6].map(cNum => (
@@ -2412,20 +2757,34 @@ export default function QualityDashboard({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-[#FDFCFB] dark:bg-gray-900">
                 {currentCsrs.length === 0 ? (
                   <tr>
-                    <td colSpan={isTrainer ? trainerColCount + 2 : 9} className="p-8 text-center text-sm text-gray-400">
-                      No agents found for this team.
+                    <td colSpan={isTrainer ? trainerColCount + 2 : isCShift ? 5 : 9} className="p-8 text-center text-sm text-gray-400">
+                      {isCShift ? (
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <p>No agents in C Shift roster yet.</p>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddCShiftModal(true)}
+                            className="px-4 py-2 bg-[#00A991] hover:bg-[#008f7a] text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Plus size={14} />
+                            <span>Add Evening Call Team Agent</span>
+                          </button>
+                        </div>
+                      ) : (
+                        "No agents found for this team."
+                      )}
                     </td>
                   </tr>
                 ) : (
                   currentCsrs.map((csrName, agentIdx) => {
                     const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                    const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
+                    const sectionSlug = isCShift ? "mohammed_dlshad_c_shift" : currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
                     const effectiveQuarter = isTrainer ? `Q${Math.floor(trainerMonth / 3) + 1}` : selectedQuarter;
                     const docId = `${selectedYear}_${effectiveQuarter}_${sectionSlug}_${slug}`;
                     const currentDoc = evalData[docId] || {};
                     const currentScores = currentDoc.scores || {};
                     const currentNotes = currentDoc.notes || {};
-                    const weekAvg = computeWeekAvg(currentScores, selectedWeek, isChatTeam, selectedYear, selectedQuarter);
+                    const weekAvg = computeWeekAvg(currentScores, selectedWeek, isChatTeam, selectedYear, selectedQuarter, isCShift);
                     const agentPhoto = memberPhotos[csrName.trim().toLowerCase()] || "";
 
                     if (isTrainer) {
@@ -2523,6 +2882,114 @@ export default function QualityDashboard({
                             }`}>
                               {agentTrainerAvg !== "-" ? `${agentTrainerAvg}%` : "-"}
                             </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    if (isCShift) {
+                      return (
+                        <tr key={csrName} className="hover:bg-teal-50/30 dark:hover:bg-gray-800/40 transition">
+                          <td className="sticky left-0 bg-white dark:bg-gray-900 z-10 px-5 py-3 font-bold text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] border-r border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center gap-2.5">
+                              {agentPhoto ? (
+                                <img
+                                  src={agentPhoto}
+                                  alt={csrName}
+                                  className="w-7 h-7 rounded-full object-cover shadow-xs border border-teal-500/20 ring-1 ring-teal-500/20 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950/60 text-[#00A991] dark:text-teal-300 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                  {csrName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="truncate max-w-[150px]" title={csrName}>{csrName}</span>
+                            </div>
+                          </td>
+
+                          {[1, 2, 3].map((cNum, cIdx) => {
+                            const key = `w${selectedWeek}_chat_${cNum}`;
+                            const rawVal = currentScores[key] ?? "";
+                            const val = String(rawVal || "");
+                            const note = currentNotes[key] ?? "";
+                            const hasNote = Boolean(note.trim());
+                            const isV = val.toUpperCase() === "V";
+                            const isNA = val.toUpperCase().includes("N/A");
+                            const cellLabel = `Chat ${cNum}`;
+
+                            return (
+                              <td key={cNum} className="p-2 text-center">
+                                <div className="relative inline-block group">
+                                  {hasNote && (
+                                    <div 
+                                      onClick={() => handleOpenNote(csrName, key, cellLabel)}
+                                      className="absolute top-0 left-0 w-0 h-0 border-t-[9px] border-r-[9px] border-r-transparent border-t-red-500 rounded-tl-xl cursor-pointer z-10" 
+                                      title={`Note: ${note}`}
+                                    />
+                                  )}
+
+                                  <input
+                                    id={`qa_cell_${agentIdx}_${cIdx}`}
+                                    type="text"
+                                    value={val}
+                                    onChange={(e) => handleScoreChange(currentSection, csrName, key, e.target.value)}
+                                    onKeyDown={(e) => handleCellKeyDown(e, agentIdx, cIdx)}
+                                    onFocus={(e) => e.target.select()}
+                                    placeholder="-"
+                                    className={`w-18 sm:w-20 h-10 text-center rounded-xl font-black text-sm outline-none transition-all shadow-2xs ${
+                                      isV
+                                        ? "bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+                                        : isNA
+                                        ? "bg-gray-100 dark:bg-gray-800/80 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700"
+                                        : "bg-white dark:bg-gray-800/90 border border-gray-200/90 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:border-teal-400 dark:hover:border-teal-500/70 focus:border-[#00A991] dark:focus:border-teal-400 focus:ring-2 focus:ring-[#00A991]/20 dark:focus:ring-teal-400/20"
+                                    }`}
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenNote(csrName, key, cellLabel)}
+                                    className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                                      hasNote
+                                        ? "bg-red-500 text-white ring-2 ring-white dark:ring-gray-900 hover:bg-red-600 scale-100 z-10"
+                                        : "bg-gray-100 hover:bg-[#00A991] dark:bg-gray-700 text-gray-400 hover:text-white dark:text-gray-400 ring-1 ring-gray-200/90 dark:ring-gray-600/70 hover:scale-110 opacity-70 group-hover:opacity-100 z-10"
+                                    }`}
+                                    title={hasNote ? `Note: ${note}` : "Add Note"}
+                                  >
+                                    <FileText size={8} />
+                                  </button>
+                                </div>
+                              </td>
+                            );
+                          })}
+
+                          <td className="p-2 text-center font-black text-sm bg-teal-50/50 dark:bg-teal-950/30">
+                            {(() => {
+                              const displayVal = selectedMonthFilter !== null
+                                ? (tableMonthAgentAvgs[csrName] ?? "-")
+                                : weekAvg;
+                              return (
+                                <span className={`inline-block px-3 py-1.5 rounded-xl text-xs font-black shadow-2xs ${
+                                  displayVal === "V"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
+                                    : displayVal !== "-"
+                                    ? "bg-white dark:bg-gray-800 text-[#00A991] dark:text-teal-300 border border-teal-500/20"
+                                    : "text-gray-300 dark:text-gray-600 font-normal"
+                                }`}>
+                                  {displayVal !== "-" && displayVal !== "V" ? `${displayVal}%` : displayVal}
+                                </span>
+                              );
+                            })()}
+                          </td>
+
+                          <td className="p-2 text-center w-12">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCShiftAgent(csrName)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition cursor-pointer"
+                              title={`Remove ${csrName} from C Shift`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </td>
                         </tr>
                       );
@@ -2798,6 +3265,62 @@ export default function QualityDashboard({
                           );
                         })()}
                       </>
+                    ) : isCShift ? (
+                      <>
+                        {[1, 2, 3].map(cNum => {
+                          const key = `w${selectedWeek}_chat_${cNum}`;
+                          const nums: number[] = [];
+                          currentCsrs.forEach(csrName => {
+                            const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+                            const docId = `${selectedYear}_${selectedQuarter}_mohammed_dlshad_c_shift_${slug}`;
+                            const val = (evalData[docId]?.scores || {})[key];
+                            if (val && val.toUpperCase() !== "V" && val.toUpperCase() !== "N/A") {
+                              const n = parseFloat(val);
+                              if (!isNaN(n)) nums.push(n);
+                            }
+                          });
+                          const colAvg = nums.length > 0 ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : "-";
+                          return (
+                            <td key={cNum} className="p-2 text-center font-black text-[#00A991] dark:text-teal-300">
+                              {colAvg !== "-" ? `${colAvg}%` : "-"}
+                            </td>
+                          );
+                        })}
+
+                        {/* Total week/month team average */}
+                        {(() => {
+                          let totalAvg = "-";
+                          if (selectedMonthFilter !== null) {
+                            const vals = Object.values(tableMonthAgentAvgs)
+                              .map(v => parseFloat(v))
+                              .filter(n => !isNaN(n));
+                            totalAvg = vals.length > 0
+                              ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
+                              : "-";
+                          } else {
+                            const weekAverages: number[] = [];
+                            currentCsrs.forEach(csrName => {
+                              const slug = csrName.toLowerCase().replace(/[^a-z0-9]/g, "_");
+                              const docId = `${selectedYear}_${selectedQuarter}_mohammed_dlshad_c_shift_${slug}`;
+                              const scores = evalData[docId]?.scores || {};
+                              const avgStr = computeWeekAvg(scores, selectedWeek, isChatTeam, selectedYear, selectedQuarter, true);
+                              if (avgStr !== "-" && avgStr !== "V") {
+                                const n = parseFloat(avgStr);
+                                if (!isNaN(n)) weekAverages.push(n);
+                              }
+                            });
+                            totalAvg = weekAverages.length > 0
+                              ? (weekAverages.reduce((a, b) => a + b, 0) / weekAverages.length).toFixed(1)
+                              : "-";
+                          }
+                          return (
+                            <td className="p-2 text-center font-black text-sm bg-teal-200/60 dark:bg-teal-900/60 text-[#00A991] dark:text-teal-300">
+                              {totalAvg !== "-" ? `${totalAvg}%` : "-"}
+                            </td>
+                          );
+                        })()}
+                        <td className="p-2" />
+                      </>
                     ) : (
                       <>
                         {[1, 2, 3, 4, 5, 6].map(cNum => {
@@ -2972,6 +3495,113 @@ export default function QualityDashboard({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Add C Shift Agent Modal (Evening Call Team only) */}
+      {showAddCShiftModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs" onClick={() => setShowAddCShiftModal(false)} />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-5 w-full max-w-md border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-[#00A991] flex items-center justify-center">
+                  <UserPlus size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-gray-900 dark:text-white">
+                    Add Evening Call Agent
+                  </h4>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                    Available members from Evening Call Team (Ankido Buya Team)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCShiftModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={cShiftSearchTerm}
+                onChange={(e) => setCShiftSearchTerm(e.target.value)}
+                placeholder="Search Evening Call agents..."
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-teal-500"
+              />
+            </div>
+
+            {/* Agent List */}
+            <div className="overflow-y-auto flex-1 divide-y divide-gray-100 dark:divide-gray-800 pr-1 max-h-96">
+              {eveningCallTeamMembers
+                .filter(name => !cShiftSearchTerm.trim() || name.toLowerCase().includes(cShiftSearchTerm.toLowerCase()))
+                .map(agentName => {
+                  const isAdded = cShiftRoster.includes(agentName);
+                  const photo = memberPhotos[agentName.trim().toLowerCase()] || "";
+                  return (
+                    <div key={agentName} className="flex items-center justify-between py-2.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-xl transition">
+                      <div className="flex items-center gap-2.5">
+                        {photo ? (
+                          <img src={photo} alt={agentName} className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-700" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-950/60 text-[#00A991] flex items-center justify-center font-bold text-xs">
+                            {agentName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-xs font-bold text-gray-900 dark:text-white">{agentName}</div>
+                          <div className="text-[10px] text-gray-400">Evening Call Team</div>
+                        </div>
+                      </div>
+
+                      {isAdded ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCShiftAgent(agentName)}
+                          className="px-3 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 rounded-lg transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Check size={12} className="text-emerald-600" />
+                          <span>Remove</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleAddCShiftAgent(agentName)}
+                          className="px-3 py-1 text-xs font-black text-white bg-[#00A991] hover:bg-[#008f7a] rounded-lg transition shadow-2xs cursor-pointer flex items-center gap-1"
+                        >
+                          <Plus size={12} />
+                          <span>Add</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {eveningCallTeamMembers.length === 0 && (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  No Evening Call team members found in the system.
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 mt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs text-gray-500">
+              <span>{cShiftRoster.length} agent(s) added</span>
+              <button
+                type="button"
+                onClick={() => setShowAddCShiftModal(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
