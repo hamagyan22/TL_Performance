@@ -6,7 +6,7 @@ import { collection, query, where, doc, setDoc, onSnapshot } from "firebase/fire
 import { updatePassword } from "firebase/auth";
 import { 
   Award, ArrowLeft, Search, Users, Check, Save, Download, 
-  Sun, Moon, ChevronDown, CheckCheck, RefreshCw, 
+  Sun, Moon, ChevronDown, CheckCheck, RefreshCw, Calendar,
   LogOut, PhoneIncoming, PhoneOutgoing, Camera, X, Trash2, FileText, MessageSquare
 } from "lucide-react";
 
@@ -198,12 +198,11 @@ export default function QualityDashboard({
   const [selectedYear, setSelectedYear] = useState<string>(() => initialPeriod.year);
   const [selectedQuarter, setSelectedQuarter] = useState<string>(() => initialPeriod.quarter);
   
-  // Top Card Summary Period: affects only the top card
+  // Top Card Summary Period: affects the top card when no specific month is selected
   const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
-  // Selected month for top card (null = show full period, 0-11 = Jan-Dec)
-  const [selectedCardMonth, setSelectedCardMonth] = useState<number | null>(null);
-  // Selected month for the agents table (null = show selected week, 0-11 = show monthly avg)
-  const [tableMonthFilter, setTableMonthFilter] = useState<number | null>(null);
+  // Unified month filter: controls both top card and agents table (null = all months / standard view, 0-11 = Jan-Dec)
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<number | null>(null);
+  const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
 
   const defaultSectionId = useMemo(() => {
     const email = (userProfile?.email || "").toLowerCase();
@@ -452,8 +451,8 @@ export default function QualityDashboard({
     let weekFilter: ((qId: string, w: number) => boolean) | null = null;
     let totalWeeksInPeriod: number;
 
-    if (selectedCardMonth !== null) {
-      const { quarter, weekStart, weekEnd } = getMonthWeekRange(selectedCardMonth);
+    if (selectedMonthFilter !== null) {
+      const { quarter, weekStart, weekEnd } = getMonthWeekRange(selectedMonthFilter);
       targetQuarters = [quarter];
       weekFilter = (qId: string, w: number) => qId === quarter && w >= weekStart && w <= weekEnd;
       totalWeeksInPeriod = weekEnd - weekStart + 1;
@@ -609,14 +608,14 @@ export default function QualityDashboard({
       topAgent,
       totalAgents: currentCsrs.length
     };
-  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedCardMonth, evalData, isChatTeam]);
+  }, [currentCsrs, currentSection, selectedYear, selectedQuarter, cardPeriodMode, selectedMonthFilter, evalData, isChatTeam]);
 
   const callBase = (selectedWeek - 1) * 6;
 
   // Per-agent average quality scores for the selected table month
   const tableMonthAgentAvgs = useMemo(() => {
-    if (tableMonthFilter === null) return {};
-    const { quarter, weekStart, weekEnd } = getMonthWeekRange(tableMonthFilter);
+    if (selectedMonthFilter === null) return {};
+    const { quarter, weekStart, weekEnd } = getMonthWeekRange(selectedMonthFilter);
     const sectionSlug = currentSection.evaluator.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const result: Record<string, string> = {};
 
@@ -658,7 +657,17 @@ export default function QualityDashboard({
     });
 
     return result;
-  }, [tableMonthFilter, currentCsrs, currentSection, selectedYear, evalData, isChatTeam]);
+  }, [selectedMonthFilter, currentCsrs, currentSection, selectedYear, evalData, isChatTeam]);
+
+  // Handler for selecting month from toolbar dropdown (affects both top card and table)
+  const handleMonthSelect = (monthIdx: number | null) => {
+    setSelectedMonthFilter(monthIdx);
+    if (monthIdx !== null) {
+      const { quarter, weekStart } = getMonthWeekRange(monthIdx);
+      setSelectedQuarter(quarter);
+      setSelectedWeek(weekStart);
+    }
+  };
 
   // Profile modal opening
   const handleOpenProfile = () => {
@@ -1477,6 +1486,11 @@ export default function QualityDashboard({
                   <span className="text-[11px] font-bold text-emerald-200">
                     QA Evaluator Performance
                   </span>
+                  {selectedMonthFilter !== null && (
+                    <span className="px-2 py-0.5 rounded-lg bg-white/20 text-white text-[10px] font-black tracking-wider uppercase backdrop-blur-xs">
+                      {MONTH_NAMES[selectedMonthFilter]}
+                    </span>
+                  )}
                 </div>
                 {/* Main Evaluator Name Title */}
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-1">
@@ -1492,9 +1506,12 @@ export default function QualityDashboard({
               <div className="flex items-center gap-1 p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15 text-xs font-bold">
                 <button
                   type="button"
-                  onClick={() => setCardPeriodMode("quarter")}
+                  onClick={() => {
+                    setSelectedMonthFilter(null);
+                    setCardPeriodMode("quarter");
+                  }}
                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "quarter" 
+                    cardPeriodMode === "quarter" && selectedMonthFilter === null
                       ? "bg-white text-[#1C6B53] font-black shadow-xs" 
                       : "text-white/80 hover:text-white hover:bg-white/10"
                   }`}
@@ -1504,9 +1521,12 @@ export default function QualityDashboard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCardPeriodMode("h1")}
+                  onClick={() => {
+                    setSelectedMonthFilter(null);
+                    setCardPeriodMode("h1");
+                  }}
                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "h1" 
+                    cardPeriodMode === "h1" && selectedMonthFilter === null
                       ? "bg-white text-[#1C6B53] font-black shadow-xs" 
                       : "text-white/80 hover:text-white hover:bg-white/10"
                   }`}
@@ -1516,9 +1536,12 @@ export default function QualityDashboard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCardPeriodMode("h2")}
+                  onClick={() => {
+                    setSelectedMonthFilter(null);
+                    setCardPeriodMode("h2");
+                  }}
                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "h2" 
+                    cardPeriodMode === "h2" && selectedMonthFilter === null
                       ? "bg-white text-[#1C6B53] font-black shadow-xs" 
                       : "text-white/80 hover:text-white hover:bg-white/10"
                   }`}
@@ -1528,9 +1551,12 @@ export default function QualityDashboard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCardPeriodMode("year")}
+                  onClick={() => {
+                    setSelectedMonthFilter(null);
+                    setCardPeriodMode("year");
+                  }}
                   className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    cardPeriodMode === "year" 
+                    cardPeriodMode === "year" && selectedMonthFilter === null
                       ? "bg-white text-[#1C6B53] font-black shadow-xs" 
                       : "text-white/80 hover:text-white hover:bg-white/10"
                   }`}
@@ -1538,25 +1564,6 @@ export default function QualityDashboard({
                 >
                   Full Year
                 </button>
-              </div>
-
-              {/* Month Dropdown Filter */}
-              <div className="relative">
-                <select
-                  value={selectedCardMonth === null ? "" : String(selectedCardMonth)}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedCardMonth(val === "" ? null : parseInt(val, 10));
-                  }}
-                  className="appearance-none pl-2.5 pr-6 py-1 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-bold backdrop-blur-md outline-none cursor-pointer hover:bg-white/20 transition"
-                  title="Filter by month"
-                >
-                  <option value="" className="text-gray-900 bg-white">All Months</option>
-                  {MONTH_NAMES.map((name, idx) => (
-                    <option key={idx} value={String(idx)} className="text-gray-900 bg-white">{name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/70" />
               </div>
 
 
@@ -1585,11 +1592,15 @@ export default function QualityDashboard({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* 1. Quality Avg */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
-              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Quality Avg</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
+                {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Avg` : "Quality Avg"}
+              </div>
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.annualAvg !== "-" ? `${teamQualityStats.annualAvg}%` : "—"}
               </div>
-              <div className="text-[10px] text-emerald-300 font-semibold">Team Quality %</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">
+                {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Quality %` : "Team Quality %"}
+              </div>
             </div>
 
             {/* 2. Completed Weeks */}
@@ -1598,7 +1609,9 @@ export default function QualityDashboard({
               <div className="text-2xl sm:text-3xl font-black text-white tracking-tight my-1">
                 {teamQualityStats.weeksCount} / {teamQualityStats.totalWeeksInPeriod}
               </div>
-              <div className="text-[10px] text-emerald-300 font-semibold">Weeks Logged</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">
+                {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Weeks Logged` : "Weeks Logged"}
+              </div>
             </div>
 
             {/* 3. Planned Quality */}
@@ -1612,11 +1625,15 @@ export default function QualityDashboard({
 
             {/* 4. Top QA Agent (On the Far Right) */}
             <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 transition shadow-xs flex flex-col justify-between min-h-[105px]">
-              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">Top QA Agent</div>
+              <div className="text-xs font-bold text-emerald-100/90 tracking-wide">
+                {selectedMonthFilter !== null ? `Top QA (${MONTH_NAMES[selectedMonthFilter]})` : "Top QA Agent"}
+              </div>
               <div className="text-base sm:text-lg font-black text-white tracking-tight my-1 truncate" title={teamQualityStats.topAgent}>
                 {teamQualityStats.topAgent}
               </div>
-              <div className="text-[10px] text-emerald-300 font-semibold">Highest Quarterly Score</div>
+              <div className="text-[10px] text-emerald-300 font-semibold">
+                {selectedMonthFilter !== null ? "Highest Monthly Score" : "Highest Quarterly Score"}
+              </div>
             </div>
           </div>
         </div>
@@ -1636,15 +1653,85 @@ export default function QualityDashboard({
             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white/80" />
           </div>
 
+          {/* Modern Month Dropdown (Directly beside Year) */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsMonthMenuOpen(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs border ${
+                selectedMonthFilter !== null
+                  ? "bg-[#00A991] text-white border-[#00A991] shadow-md shadow-[#00A991]/25 scale-[1.02]"
+                  : "bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/50 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40"
+              }`}
+              title="Filter by Month"
+            >
+              <Calendar size={13} className={selectedMonthFilter !== null ? "text-white" : "text-[#1C6B53] dark:text-emerald-400"} />
+              <span>{selectedMonthFilter !== null ? MONTH_NAMES[selectedMonthFilter] : "All Months"}</span>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${isMonthMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isMonthMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsMonthMenuOpen(false)} />
+                <div className="absolute left-0 top-full mt-2 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleMonthSelect(null);
+                      setIsMonthMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer mb-1.5 ${
+                      selectedMonthFilter === null
+                        ? "bg-[#1C6B53] text-white font-black shadow-xs"
+                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <span>All Months</span>
+                    {selectedMonthFilter === null && <Check size={13} />}
+                  </button>
+                  
+                  <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                  
+                  <div className="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto p-0.5">
+                    {MONTH_NAMES.map((name, idx) => {
+                      const isSel = selectedMonthFilter === idx;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            handleMonthSelect(idx);
+                            setIsMonthMenuOpen(false);
+                          }}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            isSel
+                              ? "bg-[#00A991] text-white font-black shadow-xs"
+                              : "text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-[#1C6B53]"
+                          }`}
+                        >
+                          <span>{name}</span>
+                          {isSel && <Check size={11} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
+
           {/* Quarter Tabs (Q1, Q2, Q3, Q4) */}
           <div className="flex items-center gap-1 shrink-0">
             {QUARTERS.map(q => {
-              const isSel = selectedQuarter === q.id;
+              const isSel = selectedQuarter === q.id && selectedMonthFilter === null;
               return (
                 <button
                   key={q.id}
                   onClick={() => {
                     setSelectedQuarter(q.id);
+                    setSelectedMonthFilter(null);
                     if (q.id === initialPeriod.quarter && selectedYear === initialPeriod.year) {
                       setSelectedWeek(initialPeriod.week);
                     } else {
@@ -1664,24 +1751,6 @@ export default function QualityDashboard({
           </div>
 
           <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
-
-          {/* Month Filter Dropdown */}
-          <div className="relative shrink-0">
-            <select
-              value={tableMonthFilter === null ? "" : String(tableMonthFilter)}
-              onChange={(e) => {
-                const val = e.target.value;
-                setTableMonthFilter(val === "" ? null : parseInt(val, 10));
-              }}
-              className="appearance-none pl-3 pr-7 py-1.5 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:border-[#1C6B53] cursor-pointer"
-            >
-              <option value="">All Weeks</option>
-              {MONTH_NAMES.map((name, idx) => (
-                <option key={idx} value={String(idx)}>{name}</option>
-              ))}
-            </select>
-            <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
-          </div>
 
           <span className="text-gray-500 dark:text-gray-400 text-xs font-semibold whitespace-nowrap px-1 shrink-0">
             {currentCsrs.length} Agents
@@ -1722,9 +1791,9 @@ export default function QualityDashboard({
               <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
                 {isChatTeam 
                   ? (hasChat7 
-                      ? `Chats 1 to 7 (7 Inbound Evaluations)` 
-                      : `Chats 1 to 6 (6 Inbound) + Outbound Evaluation`)
-                  : `Calls ${(selectedWeek - 1) * 6 + 1} to ${(selectedWeek - 1) * 6 + 6} (6 Inbound) + Outbound Evaluation`
+                      ? `Chats 1 to 7` 
+                      : `Chats 1 to 6 + Outbound`)
+                  : `Calls ${(selectedWeek - 1) * 6 + 1} to ${(selectedWeek - 1) * 6 + 6} + Outbound`
                 }
               </span>
             </div>
@@ -1776,7 +1845,7 @@ export default function QualityDashboard({
                     </th>
                   )}
                   <th className="px-4 py-3 text-center min-w-[120px] bg-[#1C6B53] text-white font-black">
-                    {tableMonthFilter !== null ? `${MONTH_NAMES[tableMonthFilter]} Avg` : `Week ${selectedWeek} Score`}
+                    {selectedMonthFilter !== null ? `${MONTH_NAMES[selectedMonthFilter]} Avg` : `Week ${selectedWeek} Score`}
                   </th>
                 </tr>
               </thead>
@@ -1994,7 +2063,7 @@ export default function QualityDashboard({
                         {/* Auto-calculated Week Score (or Monthly Avg when month filter active) */}
                         <td className="p-2 text-center font-black text-sm bg-emerald-50/50 dark:bg-emerald-950/30">
                           {(() => {
-                            const displayVal = tableMonthFilter !== null
+                            const displayVal = selectedMonthFilter !== null
                               ? (tableMonthAgentAvgs[csrName] ?? "-")
                               : weekAvg;
                             return (
@@ -2091,7 +2160,7 @@ export default function QualityDashboard({
                     {/* Total week/month team average */}
                     {(() => {
                       let totalAvg = "-";
-                      if (tableMonthFilter !== null) {
+                      if (selectedMonthFilter !== null) {
                         // Monthly avg of all agents
                         const vals = Object.values(tableMonthAgentAvgs)
                           .map(v => parseFloat(v))
