@@ -229,13 +229,40 @@ export default function QualityDashboard({
   const canSwitchTeams = isAdmin || isManager;
 
   const initialPeriod = useMemo(() => getCurrentPeriod(), []);
-  const [selectedYear, setSelectedYear] = useState<string>(() => initialPeriod.year);
-  const [selectedQuarter, setSelectedQuarter] = useState<string>(() => initialPeriod.quarter);
+  const [selectedYear, setSelectedYear] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_selected_year");
+      if (saved && YEARS.includes(saved)) return saved;
+    }
+    return initialPeriod.year;
+  });
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_selected_quarter");
+      if (saved && ["Q1", "Q2", "Q3", "Q4"].includes(saved)) return saved;
+    }
+    return initialPeriod.quarter;
+  });
   
   // Top Card Summary Period: affects the top card when no specific month is selected
-  const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">("quarter");
+  const [cardPeriodMode, setCardPeriodMode] = useState<"quarter" | "h1" | "h2" | "year">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_card_period_mode") as any;
+      if (saved && ["quarter", "h1", "h2", "year"].includes(saved)) return saved;
+    }
+    return "quarter";
+  });
   // Unified month filter: controls both top card and agents table (null = all months / standard view, 0-11 = Jan-Dec)
-  const [selectedMonthFilter, setSelectedMonthFilter] = useState<number | null>(null);
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_selected_month_filter");
+      if (saved !== null && saved !== "null" && saved !== "") {
+        const num = Number(saved);
+        if (!isNaN(num) && num >= 0 && num <= 11) return num;
+      }
+    }
+    return null;
+  });
   const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
 
   // Force Password Change for first login or after password reset
@@ -270,15 +297,48 @@ export default function QualityDashboard({
     return "mohammed_jihad";
   }, [userProfile]);
 
-  const [activeSectionId, setActiveSectionId] = useState<string>(defaultSectionId);
-  const [selectedWeek, setSelectedWeek] = useState<number>(() => initialPeriod.week);
+  const [activeSectionId, setActiveSectionId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_active_section_id");
+      if (saved && DEFAULT_SECTIONS.some(s => s.id === saved)) return saved;
+    }
+    return defaultSectionId;
+  });
+  const [selectedWeek, setSelectedWeek] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_selected_week");
+      if (saved && !isNaN(Number(saved))) {
+        const num = Number(saved);
+        if (num >= 1 && num <= 12) return num;
+      }
+    }
+    return initialPeriod.week;
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "idle">("idle");
 
   // Trainer (Mohammed Azad) specific state: No weeks, open evaluation count per month/quarter
-  const [trainerMonth, setTrainerMonth] = useState<number>(() => new Date().getMonth());
-  const [trainerColCount, setTrainerColCount] = useState<number>(5);
+  const [trainerMonth, setTrainerMonth] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_trainer_month");
+      if (saved && !isNaN(Number(saved))) {
+        const num = Number(saved);
+        if (num >= 0 && num <= 11) return num;
+      }
+    }
+    return new Date().getMonth();
+  });
+  const [trainerColCount, setTrainerColCount] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_trainer_col_count");
+      if (saved && !isNaN(Number(saved))) {
+        const num = Number(saved);
+        if (num >= 1) return num;
+      }
+    }
+    return 5;
+  });
 
   // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -324,7 +384,13 @@ export default function QualityDashboard({
   }, [currentSection]);
 
   // Mohammed Dlshad Shift State: "main" (Chat Shift) or "c_shift" (Evening Call Team, 3 Chats)
-  const [dlshadShift, setDlshadShift] = useState<"main" | "c_shift">("main");
+  const [dlshadShift, setDlshadShift] = useState<"main" | "c_shift">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("qa_dlshad_shift");
+      if (saved === "c_shift" || saved === "main") return saved;
+    }
+    return "main";
+  });
   const [cShiftRoster, setCShiftRoster] = useState<string[]>([]);
   const [showAddCShiftModal, setShowAddCShiftModal] = useState(false);
   const [cShiftSearchTerm, setCShiftSearchTerm] = useState("");
@@ -399,6 +465,61 @@ export default function QualityDashboard({
       console.error("Error saving C shift roster:", e);
     }
   };
+
+  // Synchronize QA dashboard state to localStorage for persistence across browser refresh
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_selected_year", selectedYear);
+    }
+  }, [selectedYear]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_selected_quarter", selectedQuarter);
+    }
+  }, [selectedQuarter]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_selected_week", String(selectedWeek));
+    }
+  }, [selectedWeek]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_selected_month_filter", selectedMonthFilter !== null ? String(selectedMonthFilter) : "null");
+    }
+  }, [selectedMonthFilter]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_active_section_id", activeSectionId);
+    }
+  }, [activeSectionId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_trainer_month", String(trainerMonth));
+    }
+  }, [trainerMonth]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_trainer_col_count", String(trainerColCount));
+    }
+  }, [trainerColCount]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_dlshad_shift", dlshadShift);
+    }
+  }, [dlshadShift]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("qa_card_period_mode", cardPeriodMode);
+    }
+  }, [cardPeriodMode]);
 
   const hasChat7 = useMemo(() => {
     return getHasChat7(isChatTeam, selectedYear, selectedQuarter, selectedWeek);
@@ -2384,9 +2505,9 @@ export default function QualityDashboard({
         </div>
 
         {/* Toolbar: Quarter & Week Selection Bar for Data Entry */}
-        <div className="relative z-30 flex items-center justify-between gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full shadow-xs">
+        <div className="relative z-30 flex flex-wrap items-center gap-2.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 w-full shadow-xs">
           
-          {/* Static Left Controls: Year & Month (Never clipped by overflow) */}
+          {/* Static Left Controls: Year & Month */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Year Dropdown */}
             <div className="relative shrink-0">
@@ -2474,8 +2595,8 @@ export default function QualityDashboard({
 
           <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
 
-          {/* Scrollable Center & Right Controls */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+          {/* Static Center & Right Controls (No horizontal scrollbar, fixed and wraps cleanly) */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* Mohammed Dlshad: Shift Switcher (Main Shift vs C shift) */}
             {isChatTeam && (
               <>
@@ -2503,18 +2624,6 @@ export default function QualityDashboard({
                     C shift
                   </button>
                 </div>
-
-                {isCShift && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCShiftModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00A991] hover:bg-[#008f7a] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
-                    title="Add Evening Call Team Agent to C Shift"
-                  >
-                    <Plus size={13} className="stroke-[2.5]" />
-                    <span>Add Agent</span>
-                  </button>
-                )}
 
                 <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1 shrink-0" />
               </>
@@ -2555,9 +2664,9 @@ export default function QualityDashboard({
 
             {/* TRAINER VIEW: All 12 Complete Month Tabs (Jan to Dec) & Add / Remove Column Buttons */}
             {isTrainer ? (
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* 12 Months Tabs */}
-                <div className="flex items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-900/70 rounded-xl border border-gray-200/80 dark:border-gray-700/80">
+                <div className="flex flex-wrap items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-900/70 rounded-xl border border-gray-200/80 dark:border-gray-700/80">
                   {MONTH_NAMES.map((mName, mIdx) => {
                     const isSel = trainerMonth === mIdx;
                     return (
@@ -2605,14 +2714,14 @@ export default function QualityDashboard({
               </div>
             ) : (
               /* REGULAR QA VIEW: 12 Week Tabs */
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex flex-wrap items-center gap-1">
                 {weeksList.map(w => {
                   const isSel = selectedWeek === w;
                   return (
                     <button
                       key={w}
                       onClick={() => setSelectedWeek(w)}
-                      className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                      className={`px-2.5 sm:px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                         isSel
                           ? "bg-[#1C6B53] text-white shadow-md shadow-[#1C6B53]/25 scale-[1.02]"
                           : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60"
@@ -2655,16 +2764,31 @@ export default function QualityDashboard({
               </span>
             </div>
 
-            {/* Export PDF Button */}
-            <button
-              type="button"
-              onClick={handleExportPDF}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition shadow-2xs cursor-pointer active:scale-95"
-              title="Export Report as PDF"
-            >
-              <Download size={13} />
-              <span>Export PDF</span>
-            </button>
+            {/* Action Buttons: Add Agent (C Shift) & Export PDF */}
+            <div className="flex items-center gap-2 shrink-0">
+              {isCShift && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddCShiftModal(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#00A991] hover:bg-[#008f7a] text-white text-xs font-black shadow-xs hover:shadow-md transition cursor-pointer shrink-0 active:scale-95"
+                  title="Add Evening Call Team Agent to C Shift"
+                >
+                  <Plus size={13} className="stroke-[2.5]" />
+                  <span>Add Agent</span>
+                </button>
+              )}
+
+              {/* Export PDF Button */}
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#1C6B53] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition shadow-2xs cursor-pointer active:scale-95"
+                title="Export Report as PDF"
+              >
+                <Download size={13} />
+                <span>Export PDF</span>
+              </button>
+            </div>
           </div>
 
           <div 

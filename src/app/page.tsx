@@ -1181,12 +1181,70 @@ export default function Dashboard() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const defaultPeriod = getPreviousMonthAndYear();
-  const [selectedMonth, setSelectedMonth] = useState(defaultPeriod.month);
-  const [selectedYear, setSelectedYear] = useState(defaultPeriod.year);
-  const [selectedTeam, setSelectedTeam] = useState<TeamName>('Younis Kamal Team');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("app_selected_month");
+      if (saved) return saved;
+    }
+    return defaultPeriod.month;
+  });
+  const [selectedYear, setSelectedYear] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("app_selected_year");
+      if (saved) return saved;
+    }
+    return defaultPeriod.year;
+  });
+  const [selectedTeam, setSelectedTeam] = useState<TeamName>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("app_selected_team") as TeamName;
+      if (saved && TEAMS.includes(saved)) return saved;
+    }
+    return 'Younis Kamal Team';
+  });
   const [rows, setRows] = useState<any[]>([]);
-  const [showAgentPreview, setShowAgentPreview] = useState(false);
-  const [showQualityView, setShowQualityView] = useState(false);
+  const [showAgentPreview, setShowAgentPreview] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("app_show_agent_preview") === "true";
+    }
+    return false;
+  });
+  const [showQualityView, setShowQualityView] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("app_show_quality_view") === "true";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_show_quality_view", String(showQualityView));
+    }
+  }, [showQualityView]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_show_agent_preview", String(showAgentPreview));
+    }
+  }, [showAgentPreview]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_selected_team", selectedTeam);
+    }
+  }, [selectedTeam]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_selected_month", selectedMonth);
+    }
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("app_selected_year", selectedYear);
+    }
+  }, [selectedYear]);
 
   // Drag-to-select table cells state & refs
   const [selectionStart, setSelectionStart] = useState<{ rowIndex: number; colIndex: number } | null>(null);
@@ -1515,7 +1573,10 @@ export default function Dashboard() {
             passwordUpdated: true,
           };
           setUserProfile(adminProfile);
-          setSelectedTeam('Mohammed Dlshad Team');
+          const savedTeam = typeof window !== 'undefined' ? localStorage.getItem('app_selected_team') as TeamName : null;
+          if (!savedTeam || !TEAMS.includes(savedTeam)) {
+            setSelectedTeam('Mohammed Dlshad Team');
+          }
           setAuthLoading(false);
           setDoc(doc(db, 'users', user.uid), adminProfile, { merge: true }).catch(console.error);
           return;
@@ -1683,6 +1744,10 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
+    try {
+      localStorage.removeItem("app_show_quality_view");
+      localStorage.removeItem("app_show_agent_preview");
+    } catch (e) {}
     await signOut(auth);
   };
 
