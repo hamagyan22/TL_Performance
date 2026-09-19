@@ -1500,6 +1500,7 @@ export default function Dashboard() {
         const isAnkido = emailLower === 'ankido.buya@agent.com';
         const isLara = emailLower === 'lara.kamil@agent.com';
         const isMohammedJihad = emailLower === 'mohammed.jihad@agent.com';
+        const isMohammedAzad = emailLower === 'mohammed.azad@agent.com';
         const isAgent = emailLower.endsWith('@agent.com');
 
         // Instant optimistic role identification: Mohammed Dlshad (The Admin) is EXEMPT
@@ -1520,7 +1521,7 @@ export default function Dashboard() {
           return;
         }
 
-        // For ALL other users (Manager Jalal Burghol, Team Leaders Younis & Ankido, QA Lara & Mohammed Jihad, Agents):
+        // For ALL other users (Manager Jalal Burghol, Team Leaders Younis & Ankido, QA Lara & Mohammed Jihad, Trainer Mohammed Azad, Agents):
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           const existingData = userDoc.exists() ? userDoc.data() : {};
@@ -1551,6 +1552,10 @@ export default function Dashboard() {
             role = 'qa';
             name = name || 'Mohammed Jihad';
             team = 'Younis Kamal Team';
+          } else if (isMohammedAzad) {
+            role = 'trainer';
+            name = name || 'Mohammed Azad';
+            team = 'All Call Teams';
           } else if (!role) {
             role = isAgent ? 'agent' : 'tl';
           }
@@ -1589,11 +1594,11 @@ export default function Dashboard() {
 
         } catch (e) {
           console.error("Error fetching user profile:", e);
-          const fallbackRole = isJalal ? 'manager' : (isYounis || isAnkido ? 'tl' : (isLara || isMohammedJihad ? 'qa' : (isAgent ? 'agent' : 'tl')));
+          const fallbackRole = isJalal ? 'manager' : (isYounis || isAnkido ? 'tl' : (isLara || isMohammedJihad ? 'qa' : (isMohammedAzad ? 'trainer' : (isAgent ? 'agent' : 'tl'))));
           setUserProfile({
             role: fallbackRole,
-            name: isJalal ? 'Jalal Burghol' : (isYounis ? 'Younis Kamal' : (isAnkido ? 'Ankido Buya' : (isLara ? 'Lara Kamil' : (isMohammedJihad ? 'Mohammed Jihad' : user.email?.split('@')[0])))),
-            team: isYounis ? 'Younis Kamal Team' : (isAnkido ? 'Ankido Buya Team' : (isLara ? 'Ankido Buya Team' : (isMohammedJihad ? 'Younis Kamal Team' : (isJalal ? 'All' : undefined)))),
+            name: isJalal ? 'Jalal Burghol' : (isYounis ? 'Younis Kamal' : (isAnkido ? 'Ankido Buya' : (isLara ? 'Lara Kamil' : (isMohammedJihad ? 'Mohammed Jihad' : (isMohammedAzad ? 'Mohammed Azad' : user.email?.split('@')[0]))))),
+            team: isYounis ? 'Younis Kamal Team' : (isAnkido ? 'Ankido Buya Team' : (isLara ? 'Ankido Buya Team' : (isMohammedJihad ? 'Younis Kamal Team' : (isMohammedAzad ? 'All Call Teams' : (isJalal ? 'All' : undefined))))),
             email: user.email,
             isAdmin: false,
             passwordUpdated: false,
@@ -2670,7 +2675,7 @@ export default function Dashboard() {
       );
     }
 
-    if (userProfile?.role === 'qa') {
+    if (userProfile?.role === 'qa' || userProfile?.role === 'trainer') {
       return (
         <QualityDashboard 
           userProfile={userProfile} 
